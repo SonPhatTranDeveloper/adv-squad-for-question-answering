@@ -11,14 +11,14 @@ class BacktranslationTransformation(TransformationBase):
     then back to the original language multiple times
     """
 
-    def __init__(self, chained_back_translations: int = 5):
+    def __init__(self, chained_back_translation: int = 5):
         """
         Args:
             chained_back_translations: The number of times to chain the back
             translations.
         """
         self.transformation = BackTranslation(
-            chained_back_translations=chained_back_translations
+            chained_back_translation=chained_back_translation
         )
         self.augmenter = Augmenter(self.transformation, constraints=[])
 
