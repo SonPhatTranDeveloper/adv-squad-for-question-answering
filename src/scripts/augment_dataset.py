@@ -152,11 +152,8 @@ def main(config: DictConfig) -> None:
     transform_name = config.transform.get("name", "").strip()
     if transform_name:
         # Create output filename with transform name
-        output_stem = base_output_file.stem
         output_suffix = base_output_file.suffix
-        output_file = (
-            base_output_file.parent / f"{output_stem}_{transform_name}{output_suffix}"
-        )
+        output_file = base_output_file.parent / f"{transform_name}{output_suffix}"
         logger.info(f"Using transform name '{transform_name}' for output filename")
     else:
         output_file = base_output_file
