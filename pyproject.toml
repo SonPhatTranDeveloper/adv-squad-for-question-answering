@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pandas>=2.0.0",
+    "textattack>=0.3.10",
 ]
 
 [dependency-groups]
