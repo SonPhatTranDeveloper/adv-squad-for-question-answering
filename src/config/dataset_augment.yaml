@@ -1,6 +1,8 @@
 defaults:
   - _self_
-  - transform: character_transform
+  - transform: sentence_transform
 
 dataset:
-  location: data/squad/squad.csv
+  context_col: context
+  input_file: data/squad/squad.csv
+  output_file: data/squad/squad_augmented.csv

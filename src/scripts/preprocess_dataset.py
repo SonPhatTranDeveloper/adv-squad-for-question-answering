@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Script to extract question and answer columns from SQuAD dataset.
+Script to add an ID column to a CSV dataset.
 
-This script reads a SQuAD dataset CSV file and extracts only the 'question'
-and 'answer' columns, outputting them to a new CSV file.
+This script reads a CSV file and adds a sequential ID column,
+outputting the result to a new CSV file.
 """
 
 import argparse
@@ -19,29 +19,24 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def extract_question_answer_columns(
+def add_id_column(
     input_file: Path,
     output_file: Path,
-    question_col: str = "question",
-    answer_col: str = "answer",
-    context_col: str = "context",
+    id_col: str = "id",
 ) -> None:
     """
-    Extract question, answer, and context columns from SQuAD dataset CSV.
+    Add an ID column to a CSV dataset.
 
     Args:
-        input_file: Path to input CSV file containing SQuAD dataset
-        output_file: Path to output CSV file for extracted columns
-        question_col: Name of the question column (default: 'question')
-        answer_col: Name of the answer column (default: 'answer')
-        context_col: Name of the context column (default: 'context')
+        input_file: Path to input CSV file
+        output_file: Path to output CSV file with ID column added
+        id_col: Name of the ID column to add (default: 'id')
 
     Returns:
         None
 
     Raises:
         FileNotFoundError: If input file does not exist
-        KeyError: If specified columns are not found in the dataset
         pd.errors.EmptyDataError: If input file is empty
     """
     logger.info(f"Reading dataset from {input_file}")
@@ -51,56 +46,22 @@ def extract_question_answer_columns(
         df = pd.read_csv(input_file)
         logger.info(f"Loaded dataset with {len(df)} rows and {len(df.columns)} columns")
 
-        # Check if required columns exist
-        available_columns = df.columns.tolist()
-        logger.info(f"Available columns: {available_columns}")
-
-        if question_col not in available_columns:
-            raise KeyError(
-                f"Question column '{question_col}' not found in dataset. "
-                f"Available columns: {available_columns}"
-            )
-
-        if answer_col not in available_columns:
-            raise KeyError(
-                f"Answer column '{answer_col}' not found in dataset. "
-                f"Available columns: {available_columns}"
-            )
-
-        if context_col not in available_columns:
-            raise KeyError(
-                f"Context column '{context_col}' not found in dataset. "
-                f"Available columns: {available_columns}"
-            )
-
-        # Extract only the question, answer, and context columns
-        extracted_df = df[[question_col, answer_col, context_col]].copy()
-
-        # Remove any rows with missing values
-        initial_rows = len(extracted_df)
-        extracted_df = extracted_df.dropna()
-        final_rows = len(extracted_df)
-
-        if initial_rows != final_rows:
-            logger.info(f"Removed {initial_rows - final_rows} rows with missing values")
-
-        logger.info(f"Extracted {final_rows} question-answer-context triplets")
+        # Add ID column with sequential integers starting from 1
+        df.insert(0, id_col, range(1, len(df) + 1))
+        logger.info(f"Added '{id_col}' column with {len(df)} sequential IDs")
 
         # Create output directory if it doesn't exist
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
         # Save to output file
-        extracted_df.to_csv(output_file, index=False)
-        logger.info(f"Saved extracted data to {output_file}")
+        df.to_csv(output_file, index=False)
+        logger.info(f"Saved dataset with ID column to {output_file}")
 
     except FileNotFoundError:
         logger.error(f"Input file not found: {input_file}")
         raise
     except pd.errors.EmptyDataError:
         logger.error(f"Input file is empty: {input_file}")
-        raise
-    except KeyError as e:
-        logger.error(str(e))
         raise
     except Exception as e:
         logger.error(f"Unexpected error occurred: {e}")
@@ -109,52 +70,35 @@ def extract_question_answer_columns(
 
 def main() -> None:
     """
-    Main function to parse arguments and execute the extraction.
+    Main function to parse arguments and execute the ID column addition.
 
     Returns:
         None
     """
     parser = argparse.ArgumentParser(
-        description="Extract columns from SQuAD dataset CSV",
+        description="Add an ID column to a CSV dataset",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   %(prog)s input.csv output.csv
-  %(prog)s data/squad.csv data/processed/qa_pairs.csv
-  %(prog)s input.csv output.csv --question-col "Question" --answer-col "Answer"
-  --context-col "Context"
+  %(prog)s data/dataset.csv data/processed/dataset_with_id.csv
+  %(prog)s input.csv output.csv --id-col "row_id"
         """,
     )
 
-    parser.add_argument(
-        "input_file", type=Path, help="Path to input CSV file containing SQuAD dataset"
-    )
+    parser.add_argument("input_file", type=Path, help="Path to input CSV file")
 
     parser.add_argument(
         "output_file",
         type=Path,
-        help="Path to output CSV file for extracted question-answer-context triplets",
+        help="Path to output CSV file with ID column added",
     )
 
     parser.add_argument(
-        "--question-col",
+        "--id-col",
         type=str,
-        default="question",
-        help="Name of the question column (default: 'question')",
-    )
-
-    parser.add_argument(
-        "--answer-col",
-        type=str,
-        default="answer",
-        help="Name of the answer column (default: 'answer')",
-    )
-
-    parser.add_argument(
-        "--context-col",
-        type=str,
-        default="context",
-        help="Name of the context column (default: 'context')",
+        default="id",
+        help="Name of the ID column to add (default: 'id')",
     )
 
     parser.add_argument(
@@ -180,12 +124,10 @@ Examples:
         )
 
     try:
-        extract_question_answer_columns(
+        add_id_column(
             input_file=args.input_file,
             output_file=args.output_file,
-            question_col=args.question_col,
-            answer_col=args.answer_col,
-            context_col=args.context_col,
+            id_col=args.id_col,
         )
         logger.info("Processing completed successfully")
 

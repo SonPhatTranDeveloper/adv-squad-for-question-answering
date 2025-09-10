@@ -192,5 +192,7 @@ if __name__ == "__main__":
     """
     Main function to test the RandomSequenceTransformation class.
     """
-    transformer = RandomSequenceTransformation(num_transformations=10, insertion_location=InsertionLocation.SPREAD)
+    transformer = RandomSequenceTransformation(
+        num_transformations=10, insertion_location=InsertionLocation.SPREAD
+    )
     print(transformer.transform("The quick brown fox jumps over the lazy dog."))
