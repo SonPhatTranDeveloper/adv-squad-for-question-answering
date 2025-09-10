@@ -1,4 +1,16 @@
-from textattack.augmentation.recipes import CLAREAugmenter
+import transformers
+from textattack.augmentation import Augmenter
+from textattack.constraints.pre_transformation import (
+    RepeatModification,
+    StopwordModification,
+)
+from textattack.constraints.semantics.sentence_encoders import UniversalSentenceEncoder
+from textattack.transformations import (
+    CompositeTransformation,
+    WordInsertionMaskedLM,
+    WordMergeMaskedLM,
+    WordSwapMaskedLM,
+)
 
 from src.transformation.base import TransformationBase
 
@@ -20,10 +32,66 @@ class CLARETransformation(TransformationBase):
 
     def __init__(
         self,
+        model: str = "distilroberta-base",
+        tokenizer: str = "distilroberta-base",
+        max_candidates: int = 50,
+        min_confidence_swap: float = 5e-4,
+        min_confidence_insert: float = 0.0,
+        min_confidence_merge: float = 5e-3,
+        threshold: float = 0.7,
     ):
-        self.augmenter = CLAREAugmenter(
-            pct_words_to_swap=self.pct_words_to_swap,
-            transformations_per_example=self.transformations_per_example,
+        """
+        Args:
+            model: The model to use for the masked language model.
+            tokenizer: The tokenizer to use for the masked language model.
+            max_candidates: The maximum number of candidates to consider for each word.
+            min_confidence_swap: The minimum confidence score for the swap.
+            min_confidence_insert: The minimum confidence score for the insert.
+            min_confidence_merge: The minimum confidence score for the merge.
+            threshold: The threshold for the universal sentence encoder constraint.
+        """
+        shared_masked_lm = transformers.AutoModelForCausalLM.from_pretrained(model)
+        shared_tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer)
+
+        transformation = CompositeTransformation(
+            [
+                WordSwapMaskedLM(
+                    method="bae",
+                    masked_language_model=shared_masked_lm,
+                    tokenizer=shared_tokenizer,
+                    max_candidates=max_candidates,
+                    min_confidence=min_confidence_swap,
+                ),
+                WordInsertionMaskedLM(
+                    masked_language_model=shared_masked_lm,
+                    tokenizer=shared_tokenizer,
+                    max_candidates=max_candidates,
+                    min_confidence=min_confidence_insert,
+                ),
+                WordMergeMaskedLM(
+                    masked_language_model=shared_masked_lm,
+                    tokenizer=shared_tokenizer,
+                    max_candidates=max_candidates,
+                    min_confidence=min_confidence_merge,
+                ),
+            ]
+        )
+
+        use_constraint = UniversalSentenceEncoder(
+            threshold=threshold,
+            metric="cosine",
+            compare_against_original=True,
+            window_size=15,
+            skip_text_shorter_than_window=True,
+        )
+
+        constraints = [
+            RepeatModification(),
+            StopwordModification(),
+            use_constraint,
+        ]
+        self.augmenter = Augmenter(
+            transformation=transformation, constraints=constraints
         )
 
     def transform(self, sentence: str) -> str:
