@@ -33,17 +33,15 @@ class CharacterLevelTransformation(TransformationBase):
         https://arxiv.org/abs/1812.05271
     """
 
-    def __init__(
-        self, pct_words_to_swap: float = 0.5, transformations_per_example: int = 1
-    ):
+    def __init__(self, pct_words_to_swap: float = 0.5, num_transformations: int = 1):
         """
         Args:
             pct_words_to_swap: The percentage of words to swap.
-            transformations_per_example: The number of transformations to perform
+            num_transformations: The number of transformations to perform
             per example.
         """
         self.pct_words_to_swap = pct_words_to_swap
-        self.transformations_per_example = transformations_per_example
+        self.num_transformations = num_transformations
 
         self.transformation = CompositeTransformation(
             [
@@ -90,7 +88,7 @@ class CharacterLevelTransformation(TransformationBase):
             self.transformation,
             self.constraints,
             pct_words_to_swap=self.pct_words_to_swap,
-            transformations_per_example=self.transformations_per_example,
+            transformations_per_example=self.num_transformations,
         )
 
     def transform(self, sentence: str) -> str:
@@ -101,5 +99,5 @@ if __name__ == "__main__":
     """
     Main function to test the CharacterLevelTransformation class.
     """
-    transformer = CharacterLevelTransformation()
+    transformer = CharacterLevelTransformation(num_transformations=10)
     print(transformer.transform("The quick brown fox jumps over the lazy dog."))

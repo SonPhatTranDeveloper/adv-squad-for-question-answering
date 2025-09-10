@@ -39,6 +39,7 @@ class CLARETransformation(TransformationBase):
         min_confidence_insert: float = 0.0,
         min_confidence_merge: float = 5e-3,
         threshold: float = 0.7,
+        num_transformations: int = 1,
     ):
         """
         Args:
@@ -49,7 +50,9 @@ class CLARETransformation(TransformationBase):
             min_confidence_insert: The minimum confidence score for the insert.
             min_confidence_merge: The minimum confidence score for the merge.
             threshold: The threshold for the universal sentence encoder constraint.
+            num_transformations: Number of transformations to generate per input.
         """
+        super().__init__(num_transformations)
         shared_masked_lm = transformers.AutoModelForCausalLM.from_pretrained(model)
         shared_tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer)
 
@@ -91,7 +94,9 @@ class CLARETransformation(TransformationBase):
             use_constraint,
         ]
         self.augmenter = Augmenter(
-            transformation=transformation, constraints=constraints
+            transformation=transformation,
+            constraints=constraints,
+            transformations_per_example=self.num_transformations,
         )
 
     def transform(self, sentence: str) -> str:
@@ -102,5 +107,5 @@ if __name__ == "__main__":
     """
     Main function to test the CLARETransformation class.
     """
-    transformer = CLARETransformation()
+    transformer = CLARETransformation(num_transformations=10)
     print(transformer.transform("The quick brown fox jumps over the lazy dog."))

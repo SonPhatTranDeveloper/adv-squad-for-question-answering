@@ -26,6 +26,7 @@ class RandomSequenceTransformation(TransformationBase):
         num_words: int = 5,
         word_length: int = 10,
         insertion_location: InsertionLocation = InsertionLocation.END,
+        num_transformations: int = 1,
     ):
         """
         Initialize the RandomSequenceTransformation.
@@ -34,7 +35,9 @@ class RandomSequenceTransformation(TransformationBase):
             num_words: Number of random words to generate
             word_length: Length of each random word in characters
             insertion_location: Where to insert the random sequence in the sentence
+            num_transformations: Number of transformations to generate per input
         """
+        super().__init__(num_transformations)
         self.num_words = num_words
         self.word_length = word_length
         self.insertion_location = insertion_location
@@ -139,7 +142,7 @@ class RandomSequenceTransformation(TransformationBase):
 
         return " ".join(words)
 
-    def transform(self, sentence: str) -> str:
+    def _transform_single(self, sentence: str) -> str:
         """
         Transform the sentence by inserting random words at the specified location.
 
@@ -164,3 +167,30 @@ class RandomSequenceTransformation(TransformationBase):
             # Default to end if unknown location
             random_sequence = self._generate_random_sequence()
             return self._insert_at_end(sentence, random_sequence)
+
+    def transform(self, sentence: str) -> str | list[str]:
+        """
+        Transform the sentence by inserting random words at the specified location.
+
+        Args:
+            sentence: The input sentence to transform
+
+        Returns:
+            Either a single transformed string (if num_transformations=1) or
+            a list of transformed strings (if num_transformations>1)
+        """
+        if self.num_transformations == 1:
+            return self._transform_single(sentence)
+        else:
+            return [
+                self._transform_single(sentence)
+                for _ in range(self.num_transformations)
+            ]
+
+
+if __name__ == "__main__":
+    """
+    Main function to test the RandomSequenceTransformation class.
+    """
+    transformer = RandomSequenceTransformation(num_transformations=10)
+    print(transformer.transform("The quick brown fox jumps over the lazy dog."))
