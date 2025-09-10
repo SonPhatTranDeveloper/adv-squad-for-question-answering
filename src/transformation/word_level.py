@@ -12,7 +12,7 @@ from textattack.transformations import (
 )
 
 from src.transformation.base import TransformationBase
-from utils.sentence_encoder import UniversalSentenceEncoder
+from src.utils.sentence_encoder import UniversalSentenceEncoder
 
 
 class CLARETransformation(TransformationBase):
