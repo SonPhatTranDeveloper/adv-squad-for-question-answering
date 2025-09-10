@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - transform: sentence_transform
+  - transform: word_transform
 
 dataset:
   context_col: context
