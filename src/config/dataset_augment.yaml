@@ -6,4 +6,4 @@ dataset:
   context_col: context
   input_file: data/squad/squad.csv
   output_file: data/squad/squad_augmented.csv
-  max_workers: 4  # Number of worker threads for parallel processing
+  max_workers: 10
