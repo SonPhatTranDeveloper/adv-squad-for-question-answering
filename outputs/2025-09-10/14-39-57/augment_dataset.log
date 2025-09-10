@@ -1,7 +1,0 @@
-[2025-09-10 14:39:57,076][__main__][INFO] - Using transform name 'random_number_of_words_50_characters_10_spread' for output filename
-[2025-09-10 14:39:57,076][__main__][INFO] - Loading dataset from data/squad/squad.csv
-[2025-09-10 14:39:57,076][__main__][INFO] - Output will be saved to: data/squad/squad_augmented_random_number_of_words_50_characters_10_spread.csv
-[2025-09-10 14:39:57,076][__main__][WARNING] - Output file already exists and will be overwritten: data/squad/squad_augmented_random_number_of_words_50_characters_10_spread.csv
-[2025-09-10 14:39:57,448][__main__][INFO] - Loaded dataset with 87599 rows and 9 columns
-[2025-09-10 14:39:57,448][__main__][INFO] - Columns: ['id', 'title', 'context', 'question', 'answer', 'answer_start_char_idx', 'answer_end_char_idx', 'answer_start_word_idx', 'answer_end_word_idx']
-[2025-09-10 14:39:57,448][__main__][INFO] - Instantiating transformer from configuration
