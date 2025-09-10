@@ -34,7 +34,7 @@ class CharacterLevelTransformation(TransformationBase):
     """
 
     def __init__(
-        self, pct_words_to_swap: float = 0.5, transformations_per_example: int = 5
+        self, pct_words_to_swap: float = 0.5, transformations_per_example: int = 1
     ):
         """
         Args:
