@@ -24,3 +24,11 @@ class BacktranslationTransformation(TransformationBase):
 
     def transform(self, sentence: str) -> str:
         return self.augmenter.augment(sentence)
+
+
+if __name__ == "__main__":
+    """
+    Main function to test the BacktranslationTransformation class.
+    """
+    transformer = BacktranslationTransformation()
+    print(transformer.transform("The quick brown fox jumps over the lazy dog."))
