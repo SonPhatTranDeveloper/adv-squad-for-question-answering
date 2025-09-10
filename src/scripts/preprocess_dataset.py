@@ -24,15 +24,17 @@ def extract_question_answer_columns(
     output_file: Path,
     question_col: str = "question",
     answer_col: str = "answer",
+    context_col: str = "context",
 ) -> None:
     """
-    Extract question and answer columns from SQuAD dataset CSV.
+    Extract question, answer, and context columns from SQuAD dataset CSV.
 
     Args:
         input_file: Path to input CSV file containing SQuAD dataset
         output_file: Path to output CSV file for extracted columns
         question_col: Name of the question column (default: 'question')
         answer_col: Name of the answer column (default: 'answer')
+        context_col: Name of the context column (default: 'context')
 
     Returns:
         None
@@ -65,8 +67,14 @@ def extract_question_answer_columns(
                 f"Available columns: {available_columns}"
             )
 
-        # Extract only the question and answer columns
-        extracted_df = df[[question_col, answer_col]].copy()
+        if context_col not in available_columns:
+            raise KeyError(
+                f"Context column '{context_col}' not found in dataset. "
+                f"Available columns: {available_columns}"
+            )
+
+        # Extract only the question, answer, and context columns
+        extracted_df = df[[question_col, answer_col, context_col]].copy()
 
         # Remove any rows with missing values
         initial_rows = len(extracted_df)
@@ -76,7 +84,7 @@ def extract_question_answer_columns(
         if initial_rows != final_rows:
             logger.info(f"Removed {initial_rows - final_rows} rows with missing values")
 
-        logger.info(f"Extracted {final_rows} question-answer pairs")
+        logger.info(f"Extracted {final_rows} question-answer-context triplets")
 
         # Create output directory if it doesn't exist
         output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -107,13 +115,13 @@ def main() -> None:
         None
     """
     parser = argparse.ArgumentParser(
-        description="Extract question and answer columns from SQuAD dataset CSV",
+        description="Extract question, answer, and context columns from SQuAD dataset CSV",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   %(prog)s input.csv output.csv
   %(prog)s data/squad.csv data/processed/qa_pairs.csv
-  %(prog)s input.csv output.csv --question-col "Question" --answer-col "Answer"
+  %(prog)s input.csv output.csv --question-col "Question" --answer-col "Answer" --context-col "Context"
         """,
     )
 
@@ -124,7 +132,7 @@ Examples:
     parser.add_argument(
         "output_file",
         type=Path,
-        help="Path to output CSV file for extracted question-answer pairs",
+        help="Path to output CSV file for extracted question-answer-context triplets",
     )
 
     parser.add_argument(
@@ -139,6 +147,13 @@ Examples:
         type=str,
         default="answer",
         help="Name of the answer column (default: 'answer')",
+    )
+
+    parser.add_argument(
+        "--context-col",
+        type=str,
+        default="context",
+        help="Name of the context column (default: 'context')",
     )
 
     parser.add_argument(
@@ -169,6 +184,7 @@ Examples:
             output_file=args.output_file,
             question_col=args.question_col,
             answer_col=args.answer_col,
+            context_col=args.context_col,
         )
         logger.info("Processing completed successfully")
 
