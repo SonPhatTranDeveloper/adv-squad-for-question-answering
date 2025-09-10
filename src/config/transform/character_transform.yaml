@@ -1,0 +1,6 @@
+# YAML configuration for the transformation
+
+transformation:
+  _target_: src.transformation.character_level.CharacterLevelTransformation
+  pct_words_to_swap: 0.5
+  num_transformations: 10

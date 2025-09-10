@@ -1,0 +1,6 @@
+# YAML configuration for the Backtranslation transformation (semantic-level)
+
+transformation:
+  _target_: src.transformation.semantic_level.BacktranslationTransformation
+  chained_back_translation: 5
+  num_transformations: 10

@@ -1,0 +1,12 @@
+# YAML configuration for the CLARE transformation (word-level)
+
+transformation:
+  _target_: src.transformation.word_level.CLARETransformation
+  model: "distilroberta-base"
+  tokenizer: "distilroberta-base"
+  max_candidates: 50
+  min_confidence_swap: 0.0005
+  min_confidence_insert: 0.0
+  min_confidence_merge: 0.005
+  threshold: 0.7
+  num_transformations: 10
