@@ -4,7 +4,6 @@ from textattack.constraints.pre_transformation import (
     RepeatModification,
     StopwordModification,
 )
-from textattack.constraints.semantics.sentence_encoders import UniversalSentenceEncoder
 from textattack.transformations import (
     CompositeTransformation,
     WordInsertionMaskedLM,
@@ -13,6 +12,7 @@ from textattack.transformations import (
 )
 
 from src.transformation.base import TransformationBase
+from utils.sentence_encoder import UniversalSentenceEncoder
 
 
 class CLARETransformation(TransformationBase):
@@ -93,6 +93,7 @@ class CLARETransformation(TransformationBase):
             StopwordModification(),
             use_constraint,
         ]
+
         self.augmenter = Augmenter(
             transformation=transformation,
             constraints=constraints,
