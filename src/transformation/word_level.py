@@ -18,8 +18,13 @@ class CLARETransformation(TransformationBase):
     allowing for generating outputs of varied lengths.
     """
 
-    def __init__(self):
-        self.augmenter = CLAREAugmenter()
+    def __init__(
+        self,
+    ):
+        self.augmenter = CLAREAugmenter(
+            pct_words_to_swap=self.pct_words_to_swap,
+            transformations_per_example=self.transformations_per_example,
+        )
 
     def transform(self, sentence: str) -> str:
         return self.augmenter.augment(sentence)
