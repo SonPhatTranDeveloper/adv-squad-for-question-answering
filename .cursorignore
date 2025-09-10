@@ -21,3 +21,6 @@ data/
 
 # Hydra
 outputs/
+
+# Embeddings cache
+cache/
