@@ -115,13 +115,14 @@ def main() -> None:
         None
     """
     parser = argparse.ArgumentParser(
-        description="Extract question, answer, and context columns from SQuAD dataset CSV",
+        description="Extract columns from SQuAD dataset CSV",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   %(prog)s input.csv output.csv
   %(prog)s data/squad.csv data/processed/qa_pairs.csv
-  %(prog)s input.csv output.csv --question-col "Question" --answer-col "Answer" --context-col "Context"
+  %(prog)s input.csv output.csv --question-col "Question" --answer-col "Answer"
+  --context-col "Context"
         """,
     )
 

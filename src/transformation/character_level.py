@@ -1,3 +1,4 @@
+from textattack.augmentation import Augmenter
 from textattack.constraints.pre_transformation import (
     RepeatModification,
     StopwordModification,
@@ -11,8 +12,6 @@ from textattack.transformations import (
     WordSwapRandomCharacterDeletion,
     WordSwapRandomCharacterInsertion,
 )
-from textattack.augmentation import Augmenter
-
 
 from src.transformation.base import TransformationBase
 
@@ -40,7 +39,8 @@ class CharacterLevelTransformation(TransformationBase):
         """
         Args:
             pct_words_to_swap: The percentage of words to swap.
-            transformations_per_example: The number of transformations to perform per example.
+            transformations_per_example: The number of transformations to perform
+            per example.
         """
         self.pct_words_to_swap = pct_words_to_swap
         self.transformations_per_example = transformations_per_example
@@ -95,3 +95,11 @@ class CharacterLevelTransformation(TransformationBase):
 
     def transform(self, sentence: str) -> str:
         return self.augmenter.augment(sentence)
+
+
+if __name__ == "__main__":
+    """
+    Main function to test the CharacterLevelTransformation class.
+    """
+    transformer = CharacterLevelTransformation()
+    print(transformer.transform("The quick brown fox jumps over the lazy dog."))
