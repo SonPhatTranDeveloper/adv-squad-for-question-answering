@@ -20,4 +20,4 @@ wheels/
 data/
 
 # Hydra
-output/
+outputs/
