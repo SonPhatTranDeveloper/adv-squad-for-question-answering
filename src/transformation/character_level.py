@@ -81,7 +81,7 @@ class CharacterLevelTransformation(TransformationBase):
         self.constraints = [
             RepeatModification(),
             StopwordModification(),
-            # UniversalSentenceEncoder(threshold=0.8),
+            UniversalSentenceEncoder(threshold=0.8),
         ]
 
         self.augmenter = Augmenter(
