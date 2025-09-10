@@ -1,0 +1,6 @@
+defaults:
+  - _self_
+  - transform: character_transform
+
+dataset:
+  location: data/squad/squad.csv
