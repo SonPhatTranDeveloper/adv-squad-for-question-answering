@@ -100,7 +100,7 @@ def transform_context_column(
                 new_row = row.copy()
                 augmented_rows.append(new_row)
 
-            if (idx + 1) % 100 == 0:
+            if (idx + 1) % 1 == 0:
                 logger.info(
                     f"Processed {idx + 1}/{len(df)} contexts, generated "
                     f"{total_transformations} transformations so far"
