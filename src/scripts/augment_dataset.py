@@ -86,6 +86,7 @@ def transform_context_column(
 
             elif isinstance(transformed, str):
                 # Single transformation result
+                logger.info(f"Single transformation result: {transformed}")
                 new_row = row.copy()
                 new_row[context_col] = transformed
                 augmented_rows.append(new_row)
