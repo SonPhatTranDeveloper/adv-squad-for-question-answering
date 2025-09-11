@@ -3,7 +3,7 @@ import random
 import re
 
 from src.transformation.base import TransformationBase
-from src.utils.similarity import get_similarity
+from src.utils.similarity import get_similarity_sentence_average
 from src.utils.strings import (
     randomly_delete_character,
     randomly_inject_space,
@@ -152,7 +152,9 @@ class CharacterLevelTransformationFast(TransformationBase):
             transformed_sentence = "".join(parts)
 
             # Check similarity constraint
-            similarity_score = get_similarity(original_sentence, transformed_sentence)
+            similarity_score = get_similarity_sentence_average(
+                original_sentence, transformed_sentence
+            )
 
             # If similarity meets the threshold, return the transformed sentence
             if similarity_score >= self.threshold:
