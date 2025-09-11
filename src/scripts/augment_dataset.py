@@ -22,7 +22,6 @@ To enable parallel processing, set parallel.enabled=true in your config file.
 
 import logging
 import multiprocessing as mp
-from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -271,6 +270,11 @@ def main(config: DictConfig) -> None:
     input_file = Path(config.dataset.input_file)
     base_output_file = Path(config.dataset.output_file)
     context_col = config.dataset.get("context_col", "context")
+
+    # Extract parallel processing configuration
+    parallel_enabled = config.parallel.get("enabled", False)
+    num_processes = config.parallel.get("num_processes", None)
+    chunk_size = config.parallel.get("chunk_size", 100)
 
     # Extract transform name from config if available
     transform_name = config.transform.get("name", "").strip()
