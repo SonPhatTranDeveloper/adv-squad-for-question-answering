@@ -38,6 +38,7 @@ class CharacterLevelTransformationFast(TransformationBase):
         pct_words_to_swap: float = 0.5,
         num_transformations: int = 1,
         threshold: float = 0.8,
+        max_attempts: int = 10,
     ):
         """
         Args:
@@ -47,14 +48,17 @@ class CharacterLevelTransformationFast(TransformationBase):
             threshold: The threshold for the similarity constraint.
             Transformed sentence should be similar to the original sentence
             within a certain threshold.
+            max_attempts: Maximum number of attempts to generate a transformation
+            that meets the similarity threshold.
         """
         self.pct_words_to_swap = pct_words_to_swap
         self.num_transformations = num_transformations
         self.threshold = threshold
+        self.max_attempts = max_attempts
 
-    def transform(self, sentence: str) -> str:
+    def _transform_single_sentence(self, sentence: str) -> str:
         """
-        Transform the input sentence using character-level transformations.
+        Apply character-level transformations to a single sentence.
 
         Args:
             sentence: The input sentence to transform.
@@ -64,12 +68,18 @@ class CharacterLevelTransformationFast(TransformationBase):
         """
         original_sentence = sentence
 
-        for _ in range(self.num_transformations):
-            # Tokenize the sentence into words (preserving punctuation and spaces)
-            words = re.findall(r"\S+", sentence)
+        # If the sentence is empty or too short, return as is
+        words = re.findall(r"\S+", sentence)
+        if not words:
+            return sentence
 
-            if not words:
-                continue
+        # Try to create a transformation that meets the similarity threshold
+        attempt = 0
+        while attempt < self.max_attempts:
+            current_sentence = sentence
+
+            # Tokenize the sentence into words (preserving punctuation and spaces)
+            words = re.findall(r"\S+", current_sentence)
 
             # Calculate number of words to transform
             num_words_to_transform = max(1, int(len(words) * self.pct_words_to_swap))
@@ -123,7 +133,7 @@ class CharacterLevelTransformationFast(TransformationBase):
             # We need to preserve the original spacing, so we'll use a
             # different approach
             # Split by whitespace but keep track of the separators
-            parts = re.split(r"(\s+)", sentence)
+            parts = re.split(r"(\s+)", current_sentence)
             word_index = 0
 
             for i in range(0, len(parts), 2):  # Only process non-whitespace parts
@@ -133,29 +143,57 @@ class CharacterLevelTransformationFast(TransformationBase):
                     parts[i] = words[word_index]
                     word_index += 1
 
-            sentence = "".join(parts)
+            transformed_sentence = "".join(parts)
 
             # Check similarity constraint
-            try:
-                similarity_score = get_similarity(original_sentence, sentence)[0][0]
-                if similarity_score < self.threshold:
-                    # If similarity is too low, revert to previous sentence
-                    sentence = original_sentence
-                    break
-            except Exception:
-                # If similarity calculation fails, continue with transformation
-                pass
+            similarity_score = get_similarity(original_sentence, transformed_sentence)[
+                0
+            ][0]
 
-        return sentence
+            # If similarity meets the threshold, return the transformed sentence
+            if similarity_score >= self.threshold:
+                return transformed_sentence
+
+            # Increment attempt counter for next iteration
+            attempt += 1
+
+        # If we've exhausted all attempts and still haven't met the threshold,
+        # return the original sentence
+        return original_sentence
+
+    def transform(self, sentence: str) -> str | list[str]:
+        """
+        Transform the input sentence using character-level transformations.
+
+        Args:
+            sentence: The input sentence to transform.
+
+        Returns:
+            If num_transformations == 1: The transformed sentence (str).
+            If num_transformations > 1: A list of transformed sentences (list[str]).
+        """
+        transformed_sentences = []
+
+        for _ in range(self.num_transformations):
+            transformed_sentence = self._transform_single_sentence(sentence)
+            transformed_sentences.append(transformed_sentence)
+
+        # Return single string if num_transformations == 1, otherwise return list
+        if self.num_transformations == 1:
+            return transformed_sentences[0]
+        else:
+            return transformed_sentences
 
 
 if __name__ == "__main__":
     """
     Main function to test the CharacterLevelTransformation classes.
     """
-    # Test fast transformation
-    fast_transformer = CharacterLevelTransformationFast(
-        num_transformations=5, pct_words_to_swap=0.3
+    test_sentence = "The quick brown fox jumps over the lazy dog."
+
+    # Test fast transformation with single transformation (returns string)
+    fast_transformer_single = CharacterLevelTransformationFast(
+        num_transformations=1, pct_words_to_swap=0.3, max_attempts=5
     )
-    print("\nFast transformation:")
-    print(fast_transformer.transform("The quick brown fox jumps over the lazy dog."))
+    result_single = fast_transformer_single.transform(test_sentence)
+    print(result_single)
