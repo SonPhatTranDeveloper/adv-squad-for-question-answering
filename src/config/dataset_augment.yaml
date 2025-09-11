@@ -7,10 +7,8 @@ dataset:
   input_file: data/squad/squad.csv
   output_file: data/squad/squad_augmented.csv
 
-# Batch processing configuration
-batch:
-  enabled: false          # Enable/disable batch processing
-  size: 1000              # Number of rows per batch
-  save_intermediate: false # Save intermediate results after each batch
-  intermediate_dir: outputs/batches  # Directory for intermediate batch files
-  memory_efficient: true  # Enable memory optimization (garbage collection after each batch)
+# Parallel processing configuration
+parallel:
+  enabled: true           # Enable/disable parallel processing
+  num_processes: 4        # Number of parallel processes (null for auto-detect)
+  chunk_size: 100         # Number of rows per chunk for parallel processing
