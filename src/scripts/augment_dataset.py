@@ -10,8 +10,18 @@ All configuration parameters are loaded from the Hydra config file.
 The output filename will automatically include the transform name from the config
 if available, appending it to the base output filename (e.g., 'dataset_augmented.csv'
 becomes 'dataset_augmented_transform_name.csv').
+
+BATCH PROCESSING FEATURES:
+- Process large datasets in configurable batches to manage memory usage
+- Save intermediate results for recovery in case of interruption
+- Memory optimization with garbage collection between batches
+- Detailed progress tracking for batch processing
+
+To enable batch processing, set batch.enabled=true in your config file.
+See dataset_augment_batch_example.yaml for an example configuration.
 """
 
+import gc
 import logging
 from pathlib import Path
 from typing import Any
@@ -30,7 +40,10 @@ logger = logging.getLogger(__name__)
 
 
 def transform_context_column(
-    df: pd.DataFrame, transformer: Any, context_col: str = "context"
+    df: pd.DataFrame,
+    transformer: Any,
+    context_col: str = "context",
+    batch_info: tuple[int, int] | None = None,
 ) -> pd.DataFrame:
     """
     Transform the context column of a dataset using the provided transformer.
@@ -41,6 +54,8 @@ def transform_context_column(
         df: Input DataFrame containing the dataset
         transformer: Transformation object with a transform method
         context_col: Name of the context column to transform
+        batch_info: Optional tuple of (batch_number, total_batches)
+        for progress tracking
 
     Returns:
         DataFrame with transformed context column. May contain more rows than input
@@ -57,14 +72,26 @@ def transform_context_column(
     if context_col not in df.columns:
         raise KeyError(f"Column '{context_col}' not found in dataset")
 
-    logger.info(f"Transforming {len(df)} rows in '{context_col}' column")
+    if batch_info:
+        batch_num, total_batches = batch_info
+        logger.info(
+            f"Transforming batch {batch_num}/{total_batches}: {len(df)} rows in "
+            f"{context_col}' column"
+        )
+    else:
+        logger.info(f"Transforming {len(df)} rows in '{context_col}' column")
 
     # Store all augmented rows
     augmented_rows = []
     total_transformations = 0
 
     # Create progress bar for transformation process
-    with tqdm(total=len(df), desc="Transforming contexts", unit="row") as pbar:
+    desc = (
+        f"Batch {batch_info[0]}/{batch_info[1]}"
+        if batch_info
+        else "Transforming contexts"
+    )
+    with tqdm(total=len(df), desc=desc, unit="row") as pbar:
         for idx, row in df.iterrows():
             context = row[context_col]
 
@@ -130,6 +157,93 @@ def transform_context_column(
     return augmented_df
 
 
+def process_in_batches(
+    df: pd.DataFrame,
+    transformer: Any,
+    context_col: str,
+    batch_size: int,
+    save_intermediate: bool = False,
+    intermediate_dir: Path | None = None,
+    output_file_base: str | None = None,
+    memory_efficient: bool = True,
+) -> pd.DataFrame:
+    """
+    Process dataset in batches to handle large datasets efficiently.
+
+    Args:
+        df: Input DataFrame
+        transformer: Transformation object
+        context_col: Name of context column to transform
+        batch_size: Number of rows per batch
+        save_intermediate: Whether to save intermediate batch results
+        intermediate_dir: Directory to save intermediate results
+        output_file_base: Base name for output files (without extension)
+        memory_efficient: Whether to perform garbage collection after each batch
+
+    Returns:
+        Complete augmented DataFrame
+    """
+    total_batches = (len(df) + batch_size - 1) // batch_size
+    logger.info(
+        f"Processing {len(df)} rows in {total_batches} batches of size {batch_size}"
+    )
+
+    # Create intermediate directory if needed
+    if save_intermediate and intermediate_dir:
+        intermediate_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Intermediate results will be saved to: {intermediate_dir}")
+
+    all_augmented_rows = []
+
+    for batch_idx in range(total_batches):
+        start_idx = batch_idx * batch_size
+        end_idx = min(start_idx + batch_size, len(df))
+        batch_df = df.iloc[start_idx:end_idx].copy()
+
+        logger.info(
+            f"Processing batch {batch_idx + 1}/{total_batches} "
+            f"(rows {start_idx}-{end_idx - 1})"
+        )
+
+        # Transform current batch
+        batch_augmented = transform_context_column(
+            batch_df,
+            transformer,
+            context_col,
+            batch_info=(batch_idx + 1, total_batches),
+        )
+
+        # Save intermediate results if requested
+        if save_intermediate and intermediate_dir and output_file_base:
+            batch_filename = f"{output_file_base}_batch_{batch_idx + 1:03d}.csv"
+            batch_file_path = intermediate_dir / batch_filename
+            batch_augmented.to_csv(batch_file_path, index=False)
+            logger.info(f"Saved batch {batch_idx + 1} results to: {batch_file_path}")
+
+        all_augmented_rows.append(batch_augmented)
+
+        # Log memory usage info and clean up
+        logger.info(
+            f"Batch {batch_idx + 1} completed: {len(batch_augmented)} rows generated"
+        )
+
+        # Force garbage collection after each batch to manage memory (if enabled)
+        if memory_efficient:
+            del batch_df, batch_augmented
+            gc.collect()
+
+    # Combine all batches
+    logger.info("Combining all batch results...")
+    final_df = pd.concat(all_augmented_rows, ignore_index=True)
+
+    # Reset ID column if it exists
+    if "id" in df.columns:
+        final_df["id"] = range(1, len(final_df) + 1)
+
+    logger.info(f"Batch processing completed: {len(final_df)} total rows generated")
+    return final_df
+
+
 @hydra.main(version_base=None, config_path="../config", config_name="dataset_augment")
 def main(config: DictConfig) -> None:
     """
@@ -151,6 +265,13 @@ def main(config: DictConfig) -> None:
     base_output_file = Path(config.dataset.output_file)
     context_col = config.dataset.get("context_col", "context")
 
+    # Extract batch processing configuration
+    batch_enabled = config.batch.get("enabled", False)
+    batch_size = config.batch.get("size", 1000)
+    save_intermediate = config.batch.get("save_intermediate", False)
+    memory_efficient = config.batch.get("memory_efficient", True)
+    intermediate_dir = Path(config.batch.get("intermediate_dir", "outputs/batches"))
+
     # Extract transform name from config if available
     transform_name = config.transform.get("name", "").strip()
     if transform_name:
@@ -164,6 +285,17 @@ def main(config: DictConfig) -> None:
 
     logger.info(f"Loading dataset from {input_file}")
     logger.info(f"Output will be saved to: {output_file}")
+
+    # Log batch processing configuration
+    if batch_enabled:
+        logger.info(
+            f"Batch processing enabled: batch_size={batch_size}, "
+            f"save_intermediate={save_intermediate}"
+        )
+        if save_intermediate:
+            logger.info(f"Intermediate files will be saved to: {intermediate_dir}")
+    else:
+        logger.info("Batch processing disabled - processing entire dataset at once")
 
     # Validate input file exists
     if not input_file.exists():
@@ -186,8 +318,25 @@ def main(config: DictConfig) -> None:
     transformer = instantiate(config.transform.transform)
     logger.info(f"Created transformer: {type(transformer).__name__}")
 
-    # Transform the dataset
-    augmented_df = transform_context_column(df, transformer, context_col)
+    # Transform the dataset - use batch processing if enabled
+    if batch_enabled:
+        # Extract base name for intermediate files
+        output_base_name = output_file.stem
+
+        # Process in batches
+        augmented_df = process_in_batches(
+            df=df,
+            transformer=transformer,
+            context_col=context_col,
+            batch_size=batch_size,
+            save_intermediate=save_intermediate,
+            intermediate_dir=intermediate_dir if save_intermediate else None,
+            output_file_base=output_base_name if save_intermediate else None,
+            memory_efficient=memory_efficient,
+        )
+    else:
+        # Process entire dataset at once (original behavior)
+        augmented_df = transform_context_column(df, transformer, context_col)
 
     # Create output directory if needed
     output_file.parent.mkdir(parents=True, exist_ok=True)
