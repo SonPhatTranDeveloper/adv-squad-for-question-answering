@@ -146,9 +146,7 @@ class CharacterLevelTransformationFast(TransformationBase):
             transformed_sentence = "".join(parts)
 
             # Check similarity constraint
-            similarity_score = get_similarity(original_sentence, transformed_sentence)[
-                0
-            ][0]
+            similarity_score = get_similarity(original_sentence, transformed_sentence)
 
             # If similarity meets the threshold, return the transformed sentence
             if similarity_score >= self.threshold:
