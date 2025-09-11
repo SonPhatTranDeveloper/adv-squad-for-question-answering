@@ -10,19 +10,12 @@ All configuration parameters are loaded from the Hydra config file.
 The output filename will automatically include the transform name from the config
 if available, appending it to the base output filename (e.g., 'dataset_augmented.csv'
 becomes 'dataset_augmented_transform_name.csv').
-
-PARALLEL PROCESSING FEATURES:
-- Process datasets using multiple CPU cores for improved performance
-- Configurable number of processes and chunk sizes
-- Automatic CPU core detection for optimal performance
-- Memory-efficient processing with chunked data distribution
-
-To enable parallel processing, set parallel.enabled=true in your config file.
 """
 
 import logging
-import multiprocessing as mp
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 import hydra
@@ -38,25 +31,31 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def _transform_row_worker(row_data: tuple[int, dict, Any, str]) -> list[dict]:
+def process_single_row(
+    row_data: tuple[int, pd.Series], transformer: Any, context_col: str
+) -> tuple[int, list[pd.Series], int]:
     """
-    Worker function to transform a single row in parallel processing.
+    Process a single row for transformation.
 
     Args:
-        row_data: Tuple containing (index, row_dict, transformer, context_col)
+        row_data: Tuple of (index, row) from DataFrame.iterrows()
+        transformer: Transformation object with a transform method
+        context_col: Name of the context column to transform
 
     Returns:
-        List of transformed row dictionaries
+        Tuple of (original_index, list_of_augmented_rows, transformation_count)
     """
-    idx, row_dict, transformer, context_col = row_data
-
-    # Convert row dict back to Series-like object for compatibility
-    row = pd.Series(row_dict)
+    idx, row = row_data
     context = row[context_col]
+    augmented_rows = []
+    transformation_count = 0
 
-    # Handle NaN contexts
     if pd.isna(context):
-        return [row_dict]
+        logger.warning(f"Skipping NaN context at row {idx}")
+        # Keep original row for NaN contexts
+        new_row = row.copy()
+        augmented_rows.append(new_row)
+        return idx, augmented_rows, transformation_count
 
     try:
         transformed = transformer.transform(str(context))
@@ -64,103 +63,53 @@ def _transform_row_worker(row_data: tuple[int, dict, Any, str]) -> list[dict]:
         # Handle case where transformer returns a list of transformations
         if isinstance(transformed, list) and len(transformed) > 0:
             # Create multiple rows for each transformation result
-            result_rows = []
-            for transformed_text in transformed:
-                new_row = row_dict.copy()
+            for _, transformed_text in enumerate(transformed):
+                new_row = row.copy()
                 new_row[context_col] = transformed_text
-                result_rows.append(new_row)
-            return result_rows
+                augmented_rows.append(new_row)
+                transformation_count += 1
 
         elif isinstance(transformed, str):
             # Single transformation result
-            new_row = row_dict.copy()
+            new_row = row.copy()
             new_row[context_col] = transformed
-            return [new_row]
+            augmented_rows.append(new_row)
+            transformation_count += 1
 
         else:
             # Empty result or unexpected type, keep original
-            return [row_dict]
+            logger.warning(
+                f"Unexpected transformation result type at row {idx}: "
+                f"{type(transformed)}"
+            )
+            new_row = row.copy()
+            augmented_rows.append(new_row)
 
     except Exception as e:
         logger.warning(f"Failed to transform context at row {idx}: {e}")
-        return [row_dict]
+        # Keep original row on failure
+        new_row = row.copy()
+        augmented_rows.append(new_row)
 
-
-def process_in_parallel(
-    df: pd.DataFrame,
-    transformer: Any,
-    context_col: str,
-    num_processes: int | None = None,
-    chunk_size: int = 100,
-) -> pd.DataFrame:
-    """
-    Process dataset in parallel using multiprocessing.
-
-    Args:
-        df: Input DataFrame
-        transformer: Transformation object
-        context_col: Name of context column to transform
-        num_processes: Number of processes to use (None for auto-detect)
-        chunk_size: Number of rows per chunk
-
-    Returns:
-        Complete augmented DataFrame
-    """
-    if num_processes is None:
-        num_processes = mp.cpu_count()
-
-    logger.info(
-        f"Processing {len(df)} rows using {num_processes} processes "
-        f"with chunk size {chunk_size}"
-    )
-
-    # Prepare data for parallel processing
-    # Convert DataFrame rows to dictionaries for pickling
-    row_data = [
-        (idx, row.to_dict(), transformer, context_col) for idx, row in df.iterrows()
-    ]
-
-    # Process in parallel with progress bar
-    all_augmented_rows = []
-
-    with mp.Pool(processes=num_processes) as pool:
-        # Use imap for better memory efficiency and progress tracking
-        with tqdm(total=len(row_data), desc="Processing rows", unit="row") as pbar:
-            for result_rows in pool.imap(
-                _transform_row_worker, row_data, chunksize=chunk_size
-            ):
-                all_augmented_rows.extend(result_rows)
-                pbar.update(1)
-
-    # Create DataFrame from all augmented rows
-    augmented_df = pd.DataFrame(all_augmented_rows)
-
-    # Reset index and create new sequential ID column if original dataset had one
-    augmented_df.reset_index(drop=True, inplace=True)
-    if "id" in df.columns:
-        augmented_df["id"] = range(1, len(augmented_df) + 1)
-
-    logger.info(
-        f"Parallel processing completed: {len(augmented_df)} total rows generated "
-        f"from {len(df)} original rows"
-    )
-    return augmented_df
+    return idx, augmented_rows, transformation_count
 
 
 def transform_context_column(
     df: pd.DataFrame,
     transformer: Any,
     context_col: str = "context",
+    max_workers: int = 4,
 ) -> pd.DataFrame:
     """
     Transform the context column of a dataset using the provided transformer.
     If transformer returns multiple results, creates multiple rows for each original
-    row.
+    row. Uses multi-threading for parallel processing of rows.
 
     Args:
         df: Input DataFrame containing the dataset
         transformer: Transformation object with a transform method
         context_col: Name of the context column to transform
+        max_workers: Maximum number of threads to use for parallel processing
 
     Returns:
         DataFrame with transformed context column. May contain more rows than input
@@ -177,66 +126,57 @@ def transform_context_column(
     if context_col not in df.columns:
         raise KeyError(f"Column '{context_col}' not found in dataset")
 
-    logger.info(f"Transforming {len(df)} rows in '{context_col}' column")
+    logger.info(
+        f"Transforming {len(df)} rows in '{context_col}' column using {max_workers} "
+        f"threads"
+    )
 
-    # Store all augmented rows
-    augmented_rows = []
+    # Store all augmented rows with their original indices to maintain order
+    results_dict = {}
     total_transformations = 0
+    progress_lock = Lock()
 
     # Create progress bar for transformation process
     with tqdm(total=len(df), desc="Transforming contexts", unit="row") as pbar:
-        for idx, row in df.iterrows():
-            context = row[context_col]
+        # Use ThreadPoolExecutor for parallel processing
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all rows for processing
+            future_to_row = {
+                executor.submit(
+                    process_single_row, row_data, transformer, context_col
+                ): row_data[0]
+                for row_data in df.iterrows()
+            }
 
-            if pd.isna(context):
-                logger.warning(f"Skipping NaN context at row {idx}")
-                # Keep original row for NaN contexts
-                new_row = row.copy()
-                augmented_rows.append(new_row)
-                continue
+            # Process completed futures
+            for future in as_completed(future_to_row):
+                original_idx = future_to_row[future]
+                try:
+                    idx, augmented_rows, transformation_count = future.result()
+                    results_dict[idx] = augmented_rows
 
-            try:
-                transformed = transformer.transform(str(context))
+                    # Thread-safe progress update
+                    with progress_lock:
+                        total_transformations += transformation_count
+                        pbar.set_postfix({"transformations": total_transformations})
+                        pbar.update(1)
 
-                # Handle case where transformer returns a list of transformations
-                if isinstance(transformed, list) and len(transformed) > 0:
-                    # Create multiple rows for each transformation result
-                    for _, transformed_text in enumerate(transformed):
-                        new_row = row.copy()
-                        new_row[context_col] = transformed_text
-                        augmented_rows.append(new_row)
-                        total_transformations += 1
+                except Exception as e:
+                    logger.error(f"Unexpected error processing row {original_idx}: {e}")
+                    # Create a fallback row in case of unexpected errors
+                    original_row = df.loc[original_idx].copy()
+                    results_dict[original_idx] = [original_row]
 
-                elif isinstance(transformed, str):
-                    # Single transformation result
-                    new_row = row.copy()
-                    new_row[context_col] = transformed
-                    augmented_rows.append(new_row)
-                    total_transformations += 1
+                    with progress_lock:
+                        pbar.update(1)
 
-                else:
-                    # Empty result or unexpected type, keep original
-                    logger.warning(
-                        f"Unexpected transformation result type at row {idx}: "
-                        f"{type(transformed)}"
-                    )
-                    new_row = row.copy()
-                    augmented_rows.append(new_row)
-
-                # Update progress bar with current transformation count
-                pbar.set_postfix({"transformations": total_transformations})
-
-            except Exception as e:
-                logger.warning(f"Failed to transform context at row {idx}: {e}")
-                # Keep original row on failure
-                new_row = row.copy()
-                augmented_rows.append(new_row)
-
-            # Update progress bar
-            pbar.update(1)
+    # Reconstruct augmented rows in original order
+    all_augmented_rows = []
+    for idx in sorted(results_dict.keys()):
+        all_augmented_rows.extend(results_dict[idx])
 
     # Create DataFrame from all augmented rows
-    augmented_df = pd.DataFrame(augmented_rows)
+    augmented_df = pd.DataFrame(all_augmented_rows)
 
     # Reset index and create new sequential ID column if original dataset had one
     augmented_df.reset_index(drop=True, inplace=True)
@@ -270,11 +210,7 @@ def main(config: DictConfig) -> None:
     input_file = Path(config.dataset.input_file)
     base_output_file = Path(config.dataset.output_file)
     context_col = config.dataset.get("context_col", "context")
-
-    # Extract parallel processing configuration
-    parallel_enabled = config.parallel.get("enabled", False)
-    num_processes = config.parallel.get("num_processes", None)
-    chunk_size = config.parallel.get("chunk_size", 100)
+    max_workers = config.dataset.get("max_workers", 4)
 
     # Extract transform name from config if available
     transform_name = config.transform.get("name", "").strip()
@@ -289,16 +225,6 @@ def main(config: DictConfig) -> None:
 
     logger.info(f"Loading dataset from {input_file}")
     logger.info(f"Output will be saved to: {output_file}")
-
-    # Log parallel processing configuration
-    if parallel_enabled:
-        processes = num_processes or mp.cpu_count()
-        logger.info(
-            f"Parallel processing enabled: {processes} processes, "
-            f"chunk_size={chunk_size}"
-        )
-    else:
-        logger.info("Parallel processing disabled - using sequential processing")
 
     # Validate input file exists
     if not input_file.exists():
@@ -321,18 +247,8 @@ def main(config: DictConfig) -> None:
     transformer = instantiate(config.transform.transform)
     logger.info(f"Created transformer: {type(transformer).__name__}")
 
-    # Transform the dataset - use parallel processing if enabled
-    if parallel_enabled:
-        augmented_df = process_in_parallel(
-            df=df,
-            transformer=transformer,
-            context_col=context_col,
-            num_processes=num_processes,
-            chunk_size=chunk_size,
-        )
-    else:
-        # Process sequentially (original behavior)
-        augmented_df = transform_context_column(df, transformer, context_col)
+    # Transform the dataset
+    augmented_df = transform_context_column(df, transformer, context_col, max_workers)
 
     # Create output directory if needed
     output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -347,6 +263,4 @@ def main(config: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-    # Required for multiprocessing on Windows and some other platforms
-    mp.set_start_method("spawn", force=True)
     main()

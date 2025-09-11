@@ -6,9 +6,4 @@ dataset:
   context_col: context
   input_file: data/squad/squad.csv
   output_file: data/squad/squad_augmented.csv
-
-# Parallel processing configuration
-parallel:
-  enabled: true           # Enable/disable parallel processing
-  num_processes: 4        # Number of parallel processes (null for auto-detect)
-  chunk_size: 100         # Number of rows per chunk for parallel processing
+  max_workers: 4  # Number of threads for parallel processing
