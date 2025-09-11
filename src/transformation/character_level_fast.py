@@ -193,7 +193,7 @@ if __name__ == "__main__":
 
     # Test fast transformation with single transformation (returns string)
     fast_transformer_single = CharacterLevelTransformationFast(
-        num_transformations=1, pct_words_to_swap=0.8, max_attempts=5, threshold=0.1
+        num_transformations=1, pct_words_to_swap=0.7, max_attempts=5, threshold=0.7
     )
     result_single = fast_transformer_single.transform(test_sentence)
     print(result_single)

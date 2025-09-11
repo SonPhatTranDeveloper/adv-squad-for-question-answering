@@ -2,10 +2,10 @@
 
 transform:
   _target_: src.transformation.character_level_fast.CharacterLevelTransformationFast
-  pct_words_to_swap: 0.5
+  pct_words_to_swap: 0.7
   num_transformations: 1
   max_attempts: 5
-  threshold: 0.8
+  threshold: 0.7
 
 name: |
   text_bugger/text_bugger_${transform.transform.pct_words_to_swap}_percent
