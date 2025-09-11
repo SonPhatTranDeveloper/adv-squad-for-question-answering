@@ -157,6 +157,11 @@ class CharacterLevelTransformationFast(TransformationBase):
 
         # If we've exhausted all attempts and still haven't met the threshold,
         # return the original sentence
+        logger.warning("=" * 80)
+        logger.warning(
+            f"Failed to transform sentence {original_sentence} after {self.max_attempts} attempts"
+        )
+        logger.warning("=" * 80)
         return original_sentence
 
     def transform(self, sentence: str) -> str | list[str]:
