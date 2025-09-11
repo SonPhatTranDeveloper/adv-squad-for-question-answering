@@ -1,3 +1,4 @@
+import logging
 import random
 import re
 
@@ -10,6 +11,11 @@ from src.utils.strings import (
     randomly_substitute_word,
     randomly_swap_characters,
 )
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 
 class CharacterLevelTransformationFast(TransformationBase):
@@ -159,7 +165,8 @@ class CharacterLevelTransformationFast(TransformationBase):
         # return the original sentence
         logger.warning("=" * 80)
         logger.warning(
-            f"Failed to transform sentence {original_sentence} after {self.max_attempts} attempts"
+            f"Failed to transform sentence {original_sentence} "
+            f"after {self.max_attempts} attempts"
         )
         logger.warning("=" * 80)
         return original_sentence

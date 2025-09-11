@@ -20,6 +20,7 @@ import hydra
 import pandas as pd
 from hydra.utils import instantiate
 from omegaconf import DictConfig
+from tqdm import tqdm
 
 # Configure logging
 logging.basicConfig(
@@ -62,56 +63,57 @@ def transform_context_column(
     augmented_rows = []
     total_transformations = 0
 
-    for idx, row in df.iterrows():
-        context = row[context_col]
+    # Create progress bar for transformation process
+    with tqdm(total=len(df), desc="Transforming contexts", unit="row") as pbar:
+        for idx, row in df.iterrows():
+            context = row[context_col]
 
-        if pd.isna(context):
-            logger.warning(f"Skipping NaN context at row {idx}")
-            # Keep original row for NaN contexts
-            new_row = row.copy()
-            augmented_rows.append(new_row)
-            continue
+            if pd.isna(context):
+                logger.warning(f"Skipping NaN context at row {idx}")
+                # Keep original row for NaN contexts
+                new_row = row.copy()
+                augmented_rows.append(new_row)
+                continue
 
-        try:
-            transformed = transformer.transform(str(context))
+            try:
+                transformed = transformer.transform(str(context))
 
-            # Handle case where transformer returns a list of transformations
-            if isinstance(transformed, list) and len(transformed) > 0:
-                # Create multiple rows for each transformation result
-                for _, transformed_text in enumerate(transformed):
+                # Handle case where transformer returns a list of transformations
+                if isinstance(transformed, list) and len(transformed) > 0:
+                    # Create multiple rows for each transformation result
+                    for _, transformed_text in enumerate(transformed):
+                        new_row = row.copy()
+                        new_row[context_col] = transformed_text
+                        augmented_rows.append(new_row)
+                        total_transformations += 1
+
+                elif isinstance(transformed, str):
+                    # Single transformation result
                     new_row = row.copy()
-                    new_row[context_col] = transformed_text
+                    new_row[context_col] = transformed
                     augmented_rows.append(new_row)
                     total_transformations += 1
 
-            elif isinstance(transformed, str):
-                # Single transformation result
-                logger.info(f"Single transformation result: {transformed}")
+                else:
+                    # Empty result or unexpected type, keep original
+                    logger.warning(
+                        f"Unexpected transformation result type at row {idx}: "
+                        f"{type(transformed)}"
+                    )
+                    new_row = row.copy()
+                    augmented_rows.append(new_row)
+
+                # Update progress bar with current transformation count
+                pbar.set_postfix({"transformations": total_transformations})
+
+            except Exception as e:
+                logger.warning(f"Failed to transform context at row {idx}: {e}")
+                # Keep original row on failure
                 new_row = row.copy()
-                new_row[context_col] = transformed
-                augmented_rows.append(new_row)
-                total_transformations += 1
-
-            else:
-                # Empty result or unexpected type, keep original
-                logger.warning(
-                    f"Unexpected transformation result type at row {idx}: "
-                    f"{type(transformed)}"
-                )
-                new_row = row.copy()
                 augmented_rows.append(new_row)
 
-            if (idx + 1) % 1 == 0:
-                logger.info(
-                    f"Processed {idx + 1}/{len(df)} contexts, generated "
-                    f"{total_transformations} transformations so far"
-                )
-
-        except Exception as e:
-            logger.warning(f"Failed to transform context at row {idx}: {e}")
-            # Keep original row on failure
-            new_row = row.copy()
-            augmented_rows.append(new_row)
+            # Update progress bar
+            pbar.update(1)
 
     # Create DataFrame from all augmented rows
     augmented_df = pd.DataFrame(augmented_rows)
