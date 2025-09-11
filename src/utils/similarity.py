@@ -18,7 +18,7 @@ def get_similarity(sentence1: str, sentence2: str) -> float:
     """
     # Encode the sentences in a list
     sentences = [sentence1, sentence2]
-    embeddings = sentence_transformer.encode(sentences)
+    embeddings = sentence_transformer.encode(sentences, show_progress_bar=False)
     embedding1 = embeddings[0].reshape(1, -1)
     embedding2 = embeddings[1].reshape(1, -1)
 
