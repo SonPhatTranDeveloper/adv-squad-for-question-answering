@@ -68,7 +68,8 @@ class AdversarialTransformation(TransformationBase):
         prompt = f"""You are an expert adversarial example generator for QA datasets. Your task is to perturb a question by changing key entities while keeping the same question structure and type.
 
 Instructions:
-- Perturb **ALL** key entities (especially proper nouns like *NAMES*, *DATES*, *NUMBERS*, *LOCATIONS*, *ORGANIZATIONS*, etc.) in the question
+- Perturb ONLY ONE key entity (especially proper nouns like *NAMES*, *DATES*, *NUMBERS*, *LOCATIONS*, *ORGANIZATIONS*, etc.) in the question
+- Choose the most IMPORTANT key entity to perturb
 - Use plausible alternatives (synonyms, antonyms, or nearby entities)
 - Keep the same question type and structure
 - The perturbed question should be grammatically correct and natural
