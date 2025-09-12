@@ -2,7 +2,7 @@
 
 transform:
   _target_: src.transformation.adversarial.AdversarialTransformation
-  model: "gpt-4o"
+  model: "gpt-4o-mini"
   max_tokens: 150
   temperature: 0.7
   insertion_position: "end"  # Options: "start", "end", "random"
