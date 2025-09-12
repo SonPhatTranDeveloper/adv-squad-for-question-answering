@@ -139,17 +139,14 @@ Generate ONLY the distraction sentence, no explanation or additional text:"""
 
 Requirements for the distraction sentence:
 - Grammatically correct and natural in style.
-- Mentions a FakeAnswer of the same type as the Answer.
-- Derived from a perturbed version of the Question (alter 3-4 key phrases).
-- Does not contradict or change the correctness of the original Answer for a careful reader.
-- Contains no exact token overlap with the Answer.
+- Should not be a contradiction to the original Answer.
+- Should not be a question.
 - Return only the distraction sentence (no explanations).
 
 Step-by-step instructions:
-1. Perturb 1–2 key phrases in the Question using plausible alternatives (synonyms, antonyms, or nearby entities).
+1. Perturb 3-4 key phrases (proper nouns, dates, numbers, etc.) in the Question using plausible alternatives (synonyms, antonyms, or nearby entities).
 2. Create a FakeAnswer of the same type as the original Answer, with no token overlap.
 3. Combine the perturbed Question and FakeAnswer into a single fluent sentence.
-4. Make sure the added sentence does not contradict or alter the original Answer’s correctness.
 
 Examples:
 
