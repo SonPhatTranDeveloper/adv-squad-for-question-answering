@@ -33,7 +33,11 @@ logger = logging.getLogger(__name__)
 
 
 def process_single_row(
-    row_data: tuple[int, pd.Series], transformer: Any, context_col: str, answer_col: str
+    row_data: tuple[int, pd.Series],
+    transformer: Any,
+    context_col: str,
+    question_col: str,
+    answer_col: str,
 ) -> tuple[int, list[pd.Series], int]:
     """
     Process a single row for transformation.
@@ -42,12 +46,14 @@ def process_single_row(
         row_data: Tuple of (index, row) from DataFrame.iterrows()
         transformer: Transformation object with a transform method
         context_col: Name of the context column to transform
+        question_col: Name of the question column to transform
         answer_col: Name of the answer column to transform
     Returns:
         Tuple of (original_index, list_of_augmented_rows, transformation_count)
     """
     idx, row = row_data
     context = row[context_col]
+    question = row[question_col]
     answer = row[answer_col]
     augmented_rows = []
     transformation_count = 0
@@ -60,7 +66,7 @@ def process_single_row(
         return idx, augmented_rows, transformation_count
 
     try:
-        transformed = transformer.transform(context, answer)
+        transformed = transformer.transform(context, question, answer)
 
         # Handle case where transformer returns a list of transformations
         if isinstance(transformed, list) and len(transformed) > 0:
@@ -100,6 +106,7 @@ def transform_context_column(
     df: pd.DataFrame,
     transformer: Any,
     context_col: str = "context",
+    question_col: str = "question",
     answer_col: str = "answer",
     max_workers: int = 4,
 ) -> pd.DataFrame:
@@ -112,6 +119,7 @@ def transform_context_column(
         df: Input DataFrame containing the dataset
         transformer: Transformation object with a transform method
         context_col: Name of the context column to transform
+        question_col: Name of the question column to transform
         answer_col: Name of the answer column to transform
         max_workers: Maximum number of threads to use for parallel processing
 
@@ -148,7 +156,12 @@ def transform_context_column(
         # Submit all rows for processing
         future_to_row = {
             executor.submit(
-                process_single_row, row_data, transformer, context_col, answer_col
+                process_single_row,
+                row_data,
+                transformer,
+                context_col,
+                question_col,
+                answer_col,
             ): row_data[0]
             for row_data in df.iterrows()
         }
@@ -217,6 +230,8 @@ def main(config: DictConfig) -> None:
     context_col = config.dataset.get("context_col", "context")
     max_workers = config.dataset.get("max_workers", 4)
     answer_col = config.dataset.get("answer_col", "answer")
+    question_col = config.dataset.get("question_col", "question")
+
     # Extract transform name from config if available
     transform_name = config.transform.get("name", "").strip()
     if transform_name:
@@ -254,7 +269,7 @@ def main(config: DictConfig) -> None:
 
     # Transform the dataset
     augmented_df = transform_context_column(
-        df, transformer, context_col, answer_col, max_workers
+        df, transformer, context_col, question_col, answer_col, max_workers
     )
 
     # Create output directory if needed
