@@ -52,159 +52,167 @@ class AdversarialTransformation(TransformationBase):
 
         logger.info(f"Initialized AdversarialTransformation with model: {model}")
 
-    def _generate_distraction_prompt(
-        self, context: str, question: str, answer: str
+    def _generate_perturbed_question_prompt(
+        self, question: str, answer: str
     ) -> str:
         """
-        Create a prompt for GPT to generate a distraction sentence.
+        Create a prompt for GPT to generate a perturbed question (Step 1).
 
         Args:
-            context: The original context
-            question: The input question
+            question: The original question
             answer: The correct answer
 
         Returns:
-            Formatted prompt for GPT
+            Formatted prompt for GPT to perturb the question
         """
-        prompt = f"""You are an expert adversarial example generator for
-question-answering datasets. Your task is to produce one long, fluent sentence
-that can be inserted into a passage (context) so that an automatic
-QA model is more likely to produce an incorrect answer.
+        prompt = f"""You are an expert adversarial example generator for QA datasets. Your task is to perturb a question by changing key entities while keeping the same question structure and type.
 
-Given the following context, a question, and the correct answer, your task is to generate a single, highly confusing **distraction sentence**.
-
-The sentence must:
-- Be a plausible but incorrect answer.
-- Be grammatically correct and fit the context's style.
-- Use a similar structure or keyword from the **question** to create confusion.
-- Match the **answer type** (e.g., if the answer is a date, provide a date).
-
-Return only the distraction sentence. Do not include any other text or formatting.
-
----
-**Example 1**
-- Context: "The first major work by the Renaissance sculptor Donatello was the marble statue of David, created between 1408 and 1409 for the Cathedral of Florence. This statue is notable for its attention to natural detail and for being one of the first freestanding nude male sculptures since antiquity."
-- Question: "What was Donatello's first major work?"
-- Correct Answer: "the marble statue of David"
-
-**Example Output:**
-His first project, "The Penitent Magdalene," was a wooden sculpture completed in 1455.
-
----
-**Example 2**
-- Context: "The Amazon River is the world's largest river by discharge volume of water, with an average flow of about 209,000 cubic meters per second. It flows through the Amazon rainforest, which is the world's most biodiverse tropical forest, and empties into the Atlantic Ocean."
-- Question: "Where does the Amazon River empty into?"
-- Correct Answer: "the Atlantic Ocean"
-
-**Example Output:**
-After a long journey through the rainforest, the river also connects to the Pacific Ocean via a complex network of tributaries.
-
----
-**Example 3**
-- Context: "The final version of Python 3.0 was released on December 3, 2008. Major new features included a change to the print function, which became a built-in function, and a switch to Unicode for all strings by default."
-- Question: "When was Python 3.0 released?"
-- Correct Answer: "December 3, 2008"
-
-**Example Output:**
-A beta version of Python 3.0 was first made available on September 1, 2008, three months earlier.
-
----
-**Example 4**
-- Context: "Albert Einstein received the Nobel Prize in Physics in 1921 for his services to Theoretical Physics, and especially for his discovery of the law of the photoelectric effect. His theory of relativity, though highly influential, was not the direct reason for the award."
-- Question: "Who received the Nobel Prize in Physics in 1921?"
-- Correct Answer: "Albert Einstein"
-
-**Example Output:**
-In 1921, Max Planck, a German theoretical physicist, received the Nobel Prize for his work in quantum theory.
-
----
-**Example 5**
-- Context: "The Battle of Hastings, fought on October 14, 1066, marked a pivotal moment in English history. Led by William the Conqueror, the Norman forces defeated the English army under King Harold Godwinson, leading to the Norman conquest of England."
-- Question: "Who led the Norman forces at the Battle of Hastings?"
-- Correct Answer: "William the Conqueror"
-
-**Example Output:**
-The English army was famously led by King Harold Godwinson, who was ultimately defeated on the battlefield.
-
----
-**Your Task:**
-- Context: {context}
-- Question: {question}
-- Correct Answer: {answer}
-- Position to insert the distraction sentence to context: {self.insertion_position}
-
-Generate ONLY the distraction sentence, no explanation or additional text:"""
-
-        new_prompt = f"""You are an expert adversarial example generator for QA datasets. Your task is to create ONE distraction sentence to insert into a passage (context).
-
-Requirements for the distraction sentence:
-- Grammatically correct and natural in style.
-- Should not be a contradiction to the original Answer.
-- Should not be a question.
-- Return only the distraction sentence (no explanations).
-
-Step-by-step instructions:
-1. Perturb 3-4 key phrases (proper nouns, dates, numbers, etc.) in the Question using plausible alternatives (synonyms, antonyms, or nearby entities).
-2. Create a FakeAnswer of the same type as the original Answer, with no token overlap.
-3. Combine the perturbed Question and FakeAnswer into a single fluent sentence.
+Instructions:
+- Perturb **ALL** key entities (especially proper nouns like *NAMES*, *DATES*, *NUMBERS*, *LOCATIONS*, *ORGANIZATIONS*, etc.) in the question
+- Use plausible alternatives (synonyms, antonyms, or nearby entities)
+- Keep the same question type and structure
+- The perturbed question should be grammatically correct and natural
+- Return ONLY the perturbed question (no explanations)
 
 Examples:
 
-Example 1 (Location)
 Original Question: "Where is the headquarters of the United Nations located?"
-Answer: "New York"
 Perturbed Question: "Where is the main office of UNESCO located?"
-FakeAnswer: "Paris"
+
+Original Question: "Who invented the telephone?"
+Perturbed Question: "Who created the first practical telegraph system?"
+
+Original Question: "When was the first manned moon landing?"
+Perturbed Question: "When did the first unmanned lunar probe land on the moon?"
+
+Original Question: "Which company developed the first commercially successful personal computer?"
+Perturbed Question: "Which corporation introduced the first popular desktop computer?"
+
+Original Question: "What year did the French Revolution begin?"
+Perturbed Question: "In which year did the American Revolution start?"
+
+Now perturb the following question:
+
+Original Question: {question}
+Original Answer: {answer}
+
+Perturbed Question:"""
+
+        return prompt
+
+    def _generate_fake_answer_prompt(
+        self, perturbed_question: str, original_answer: str
+    ) -> str:
+        """
+        Create a prompt for GPT to generate a fake answer (Step 2).
+
+        Args:
+            perturbed_question: The perturbed question from step 1
+            original_answer: The original correct answer
+
+        Returns:
+            Formatted prompt for GPT to generate a fake answer
+        """
+        prompt = f"""You are an expert adversarial example generator for QA datasets. Your task is to create a fake answer that corresponds to the perturbed question.
+
+Instructions:
+- Create a FakeAnswer of the same type as the original Answer (location, person, date, organization, etc.)
+- The FakeAnswer should have NO token overlap with the original Answer
+- The FakeAnswer should be plausible and realistic for the perturbed question
+- Return ONLY the fake answer (no explanations)
+
+Examples:
+
+Perturbed Question: "Where is the main office of UNESCO located?"
+Original Answer: "New York"
+Fake Answer: "Paris"
+
+Perturbed Question: "Who created the first practical telegraph system?"
+Original Answer: "Alexander Graham Bell"
+Fake Answer: "Samuel Morse"
+
+Perturbed Question: "When did the first unmanned lunar probe land on the moon?"
+Original Answer: "1969"
+Fake Answer: "1966"
+
+Perturbed Question: "Which corporation introduced the first popular desktop computer?"
+Original Answer: "Apple"
+Fake Answer: "IBM"
+
+Perturbed Question: "In which year did the American Revolution start?"
+Original Answer: "1789"
+Fake Answer: "1775"
+
+Now generate a fake answer for the following:
+
+Perturbed Question: {perturbed_question}
+Original Answer: {original_answer}
+
+Fake Answer:"""
+
+        return prompt
+
+    def _generate_distraction_sentence_prompt(
+        self, perturbed_question: str, fake_answer: str
+    ) -> str:
+        """
+        Create a prompt for GPT to combine perturbed question and fake answer into a distraction sentence (Step 3).
+
+        Args:
+            perturbed_question: The perturbed question from step 1
+            fake_answer: The fake answer from step 2
+
+        Returns:
+            Formatted prompt for GPT to create the final distraction sentence
+        """
+        prompt = f"""You are an expert adversarial example generator for QA datasets. Your task is to combine a perturbed question and its fake answer into a single, fluent distraction sentence.
+
+Instructions:
+- Combine the perturbed question and fake answer into ONE natural, fluent sentence
+- The sentence should be grammatically correct and natural in style
+- The sentence should provide the fake answer as factual information
+- Return ONLY the distraction sentence (no explanations)
+
+Examples:
+
+Perturbed Question: "Where is the main office of UNESCO located?"
+Fake Answer: "Paris"
 Distraction Sentence: "UNESCO's main office is located in Paris and coordinates international programs."
 
-Example 2 (Person)
-Original Question: "Who invented the telephone?"
-Answer: "Alexander Graham Bell"
 Perturbed Question: "Who created the first practical telegraph system?"
-FakeAnswer: "Samuel Morse"
+Fake Answer: "Samuel Morse"
 Distraction Sentence: "Samuel Morse created the first practical telegraph system, revolutionizing long-distance communication."
 
-Example 3 (Date/Number)
-Original Question: "When was the first manned moon landing?"
-Answer: "1969"
 Perturbed Question: "When did the first unmanned lunar probe land on the moon?"
-FakeAnswer: "1966"
+Fake Answer: "1966"
 Distraction Sentence: "The first unmanned lunar probe successfully landed on the moon in 1966."
 
-Example 4 (Organization)
-Original Question: "Which company developed the first commercially successful personal computer?"
-Answer: "Apple"
 Perturbed Question: "Which corporation introduced the first popular desktop computer?"
-FakeAnswer: "IBM"
+Fake Answer: "IBM"
 Distraction Sentence: "IBM introduced the first popular desktop computer, attracting significant attention in the market."
 
-Example 5 (Event)
-Original Question: "What year did the French Revolution begin?"
-Answer: "1789"
 Perturbed Question: "In which year did the American Revolution start?"
-FakeAnswer: "1775"
+Fake Answer: "1775"
 Distraction Sentence: "The American Revolution started in 1775, leading to independence from British rule."
 
-Now generate ONE distraction sentence for the following input:
+Now create a distraction sentence for the following:
 
-Context: {context}
-Question: {question}
-Answer: {answer}
+Perturbed Question: {perturbed_question}
+Fake Answer: {fake_answer}
 
-Make sure the added sentence does not contradict or alter the original Answer’s correctness.
-"""
+Distraction Sentence:"""
 
-        return new_prompt
+        return prompt
 
     def _call_gpt(self, prompt: str) -> str:
         """
-        Call GPT API to generate distraction sentence.
+        Call GPT API to generate response based on the provided prompt.
 
         Args:
             prompt: The formatted prompt
 
         Returns:
-            Generated distraction sentence
+            Generated response from GPT
         """
         try:
             response = self.client.chat.completions.create(
@@ -265,6 +273,10 @@ Make sure the added sentence does not contradict or alter the original Answer’
     def transform(self, context: str, question: str, answer: str) -> str | list[str]:
         """
         Transform the context by adding adversarial distraction sentences.
+        Uses a 3-step process with separate OpenAI calls for better accuracy:
+        1. Perturb the original question
+        2. Generate a fake answer for the perturbed question
+        3. Combine into a fluent distraction sentence
 
         Args:
             context: The input context to transform
@@ -285,11 +297,43 @@ Make sure the added sentence does not contradict or alter the original Answer’
 
         for i in range(self.num_transformations):
             try:
-                # Generate distraction prompt
-                prompt = self._generate_distraction_prompt(context, question, answer)
+                logger.info(f"Starting transformation {i + 1}/{self.num_transformations}")
+                
+                # Step 1: Generate perturbed question
+                logger.debug("Step 1: Generating perturbed question")
+                perturb_prompt = self._generate_perturbed_question_prompt(question, answer)
+                perturbed_question = self._call_gpt(perturb_prompt)
+                
+                if not perturbed_question.strip():
+                    logger.warning("Failed to generate perturbed question, using original context")
+                    results.append(context)
+                    continue
+                
+                logger.debug(f"Perturbed question: {perturbed_question}")
 
-                # Call GPT to generate distraction
-                distraction = self._call_gpt(prompt)
+                # Step 2: Generate fake answer for perturbed question
+                logger.debug("Step 2: Generating fake answer")
+                fake_answer_prompt = self._generate_fake_answer_prompt(perturbed_question, answer)
+                fake_answer = self._call_gpt(fake_answer_prompt)
+                
+                if not fake_answer.strip():
+                    logger.warning("Failed to generate fake answer, using original context")
+                    results.append(context)
+                    continue
+                
+                logger.debug(f"Fake answer: {fake_answer}")
+
+                # Step 3: Combine into distraction sentence
+                logger.debug("Step 3: Creating distraction sentence")
+                distraction_prompt = self._generate_distraction_sentence_prompt(perturbed_question, fake_answer)
+                distraction = self._call_gpt(distraction_prompt)
+                
+                if not distraction.strip():
+                    logger.warning("Failed to generate distraction sentence, using original context")
+                    results.append(context)
+                    continue
+                
+                logger.debug(f"Distraction sentence: {distraction}")
 
                 # Insert distraction into context
                 transformed_context = self._insert_distraction(context, distraction)
