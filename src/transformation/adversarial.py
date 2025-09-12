@@ -135,7 +135,67 @@ The English army was famously led by King Harold Godwinson, who was ultimately d
 
 Generate ONLY the distraction sentence, no explanation or additional text:"""
 
-        return prompt
+        new_prompt = """You are an expert adversarial example generator for QA datasets. Your task is to create ONE distraction sentence to insert into a passage (context).
+
+Requirements for the distraction sentence:
+- Grammatically correct and natural in style.
+- Mentions a FakeAnswer of the same type as the Answer.
+- Derived from a perturbed version of the Question (alter only 1–2 key phrases).
+- Between 8–22 words.
+- Does not change the correctness of the original Answer for a careful reader.
+- Contains no exact token overlap with the Answer.
+- Return only the distraction sentence (no explanations).
+
+Step-by-step instructions:
+1. Perturb 1–2 key phrases in the Question using plausible alternatives (synonyms, antonyms, or nearby entities).
+2. Create a FakeAnswer of the same type as the original Answer, with no token overlap.
+3. Combine the perturbed Question and FakeAnswer into a single fluent sentence.
+
+Examples:
+
+Example 1 (Location)
+Original Question: "Where is the headquarters of the United Nations located?"
+Answer: "New York"
+Perturbed Question: "Where is the main office of UNESCO located?"
+FakeAnswer: "Paris"
+Distraction Sentence: "UNESCO's main office is located in Paris and coordinates international programs."
+
+Example 2 (Person)
+Original Question: "Who invented the telephone?"
+Answer: "Alexander Graham Bell"
+Perturbed Question: "Who created the first practical telegraph system?"
+FakeAnswer: "Samuel Morse"
+Distraction Sentence: "Samuel Morse created the first practical telegraph system, revolutionizing long-distance communication."
+
+Example 3 (Date/Number)
+Original Question: "When was the first manned moon landing?"
+Answer: "1969"
+Perturbed Question: "When did the first unmanned lunar probe land on the moon?"
+FakeAnswer: "1966"
+Distraction Sentence: "The first unmanned lunar probe successfully landed on the moon in 1966."
+
+Example 4 (Organization)
+Original Question: "Which company developed the first commercially successful personal computer?"
+Answer: "Apple"
+Perturbed Question: "Which corporation introduced the first popular desktop computer?"
+FakeAnswer: "IBM"
+Distraction Sentence: "IBM introduced the first popular desktop computer, attracting significant attention in the market."
+
+Example 5 (Event)
+Original Question: "What year did the French Revolution begin?"
+Answer: "1789"
+Perturbed Question: "In which year did the American Revolution start?"
+FakeAnswer: "1775"
+Distraction Sentence: "The American Revolution started in 1775, leading to independence from British rule."
+
+Now generate ONE distraction sentence for the following input:
+
+Context: {context}
+Question: {question}
+Answer: {answer}
+"""
+
+        return new_prompt
 
     def _call_gpt(self, prompt: str) -> str:
         """
