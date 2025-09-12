@@ -1,9 +1,15 @@
-# YAML configuration for the Backtranslation transformation (semantic-level)
+# YAML configuration for the SMALL-100 Backtranslation transformation (semantic-level)
 
 transform: 
   _target_: src.transformation.semantic_level.BacktranslationTransformation
   chained_back_translation: 5
   num_transformations: 1
+  source_language: "en"
+  intermediate_language: "fr"  # Single intermediate language for back translation
+  model_name: "alirezamsh/small100"
+  max_length: 256
+  num_beams: 5
+  device: null  # Auto-detect (GPU if available, otherwise CPU)
 
 name: |
-  backtranslation/backtranslation_${transform.transform.chained_back_translation}_times
+  small100_backtranslation/backtranslation_${transform.transform.chained_back_translation}_times
