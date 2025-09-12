@@ -20,6 +20,7 @@ from typing import Any
 
 import hydra
 import pandas as pd
+from dotenv import load_dotenv
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from tqdm import tqdm
@@ -269,4 +270,5 @@ def main(config: DictConfig) -> None:
 
 
 if __name__ == "__main__":
+    load_dotenv()
     main()
