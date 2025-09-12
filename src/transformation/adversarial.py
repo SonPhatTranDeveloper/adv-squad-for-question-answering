@@ -135,7 +135,7 @@ The English army was famously led by King Harold Godwinson, who was ultimately d
 
 Generate ONLY the distraction sentence, no explanation or additional text:"""
 
-        new_prompt = """You are an expert adversarial example generator for QA datasets. Your task is to create ONE distraction sentence to insert into a passage (context).
+        new_prompt = f"""You are an expert adversarial example generator for QA datasets. Your task is to create ONE distraction sentence to insert into a passage (context).
 
 Requirements for the distraction sentence:
 - Grammatically correct and natural in style.
