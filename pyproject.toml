@@ -11,6 +11,8 @@ dependencies = [
     "pandas>=2.0.0",
     "sentence-transformers>=2.2.0",
     "textattack>=0.3.10",
+    "torch>=2.0.0",
+    "transformers>=4.21.0",
 ]
 
 [dependency-groups]
