@@ -104,7 +104,6 @@ You must only return the distraction sentence, with no other text, explanation, 
 Example Input:
 -   **Context:** "The first major work by the Renaissance sculptor Donatello was the marble statue of David, created between 1408 and 1409 for the Cathedral of Florence. This statue is notable for its attention to natural detail and for being one of the first freestanding nude male sculptures since antiquity."
 -   **Question:** "What was Donatello's first major work?"
--   **Answer:** "the marble statue of David"
 
 Example Output:
 He later completed a separate bronze statue of David in 1440 for the Medici family.
