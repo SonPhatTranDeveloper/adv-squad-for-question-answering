@@ -90,7 +90,33 @@ Position to insert the distraction sentence to context: {self.insertion_position
 
 Generate ONLY the distraction sentence, no explanation or additional text:"""
 
-        return prompt
+        new_prompt = """You are an expert in natural language processing and data generation. Your task is to create a single distraction sentence for an adversarial question-answering task.
+
+You will be provided with a **Context**, a **Question**, and a **Correct Answer**.
+
+Your goal is to generate a new sentence that:
+1.  Is a distraction, containing a plausible but incorrect answer to the question.
+2.  Is semantically related to the overall topic of the context.
+3.  Would be a highly convincing "false" answer if inserted into the original context.
+
+You must only return the distraction sentence, with no other text, explanation, or formatting.
+
+Example Input:
+-   **Context:** "The first major work by the Renaissance sculptor Donatello was the marble statue of David, created between 1408 and 1409 for the Cathedral of Florence. This statue is notable for its attention to natural detail and for being one of the first freestanding nude male sculptures since antiquity."
+-   **Question:** "What was Donatello's first major work?"
+-   **Answer:** "the marble statue of David"
+
+Example Output:
+He later completed a separate bronze statue of David in 1440 for the Medici family.
+
+---
+Your Task:
+-   **Context:** {context}
+-   **Question:** {question}
+
+"""
+
+        return new_prompt
 
     def _call_gpt(self, prompt: str) -> str:
         """
