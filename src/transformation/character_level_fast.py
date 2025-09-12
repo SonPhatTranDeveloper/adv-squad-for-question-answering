@@ -173,12 +173,13 @@ class CharacterLevelTransformationFast(TransformationBase):
         logger.warning("=" * 80)
         return original_sentence
 
-    def transform(self, context: str, answer: str) -> str | list[str]:
+    def transform(self, context: str, question: str, answer: str) -> str | list[str]:
         """
         Transform the input sentence using character-level transformations.
 
         Args:
             context: The input context to transform.
+            question: The input question to transform.
             answer: The input answer to transform.
 
         Returns:

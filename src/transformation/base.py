@@ -18,12 +18,13 @@ class TransformationBase(abc.ABC):
         self.num_transformations = num_transformations
 
     @abc.abstractmethod
-    def transform(self, context: str, answer: str) -> str | list[str]:
+    def transform(self, context: str, question: str, answer: str) -> str | list[str]:
         """
         Transform the input sentence.
 
         Args:
             context: The input context to transform
+            question: The input question to transform
             answer: The input answer to transform
 
         Returns:

@@ -2,7 +2,6 @@ import logging
 import os
 
 import openai
-from dotenv import load_dotenv
 
 from src.transformation.base import TransformationBase
 
@@ -53,12 +52,15 @@ class AdversarialTransformation(TransformationBase):
 
         logger.info(f"Initialized AdversarialTransformation with model: {model}")
 
-    def _generate_distraction_prompt(self, context: str, answer: str) -> str:
+    def _generate_distraction_prompt(
+        self, context: str, question: str, answer: str
+    ) -> str:
         """
         Create a prompt for GPT to generate a distraction sentence.
 
         Args:
             context: The original context
+            question: The input question
             answer: The correct answer
 
         Returns:
@@ -73,14 +75,16 @@ Given the following context and answer, generate a single distraction sentence t
 1. Is factually plausible and grammatically correct
 2. Contains information that could mislead a QA model away from the correct answer
 3. Fits naturally within the context's topic and style
-4. Does NOT directly contradict the correct answer, but provides alternative plausible
-   information
-5. Avoid contradicting facts a human would immediately detect as false, but be highly
+4. Avoid contradicting facts a human would immediately detect as false, but be highly
    confusable for models.
+5. Matches the answer type (e.g., if the question asks for a date,
+include a date-like phrase; if it asks for a person, mention a person).
+For example, if the answer is a number, the distraction sentence should contain
+a distracting number.
 
 Context: {context}
 
-Correct Answer: {answer}
+Question: {question}
 
 Insert position: {self.insertion_position}
 
@@ -135,15 +139,15 @@ Generate ONLY the distraction sentence, no explanation or additional text:"""
 
         if self.insertion_position == "start":
             # Insert at the beginning
-            modified_context = f"{distraction}. {context}"
+            modified_context = f"{distraction} {context}"
         elif self.insertion_position == "end":
             # Insert at the end
-            modified_context = f"{context}. {distraction}"
+            modified_context = f"{context} {distraction}"
         else:  # random
             # Insert randomly in the middle
             if len(sentences) <= 2:
                 # If context is too short, insert at the end
-                modified_context = f"{context}. {distraction}"
+                modified_context = f"{context} {distraction}"
             else:
                 import random
 
@@ -154,12 +158,13 @@ Generate ONLY the distraction sentence, no explanation or additional text:"""
 
         return modified_context
 
-    def transform(self, context: str, answer: str) -> str | list[str]:
+    def transform(self, context: str, question: str, answer: str) -> str | list[str]:
         """
         Transform the context by adding adversarial distraction sentences.
 
         Args:
             context: The input context to transform
+            question: The input question to transform
             answer: The correct answer (used to generate relevant distractions)
 
         Returns:
@@ -177,7 +182,7 @@ Generate ONLY the distraction sentence, no explanation or additional text:"""
         for i in range(self.num_transformations):
             try:
                 # Generate distraction prompt
-                prompt = self._generate_distraction_prompt(context, answer)
+                prompt = self._generate_distraction_prompt(context, question, answer)
 
                 # Call GPT to generate distraction
                 distraction = self._call_gpt(prompt)
@@ -201,22 +206,3 @@ Generate ONLY the distraction sentence, no explanation or additional text:"""
             return results[0] if results else context
         else:
             return results if results else [context]
-
-
-if __name__ == "__main__":
-    load_dotenv()
-    transformer = AdversarialTransformation(
-        num_transformations=1,
-        model="gpt-4o",
-        max_tokens=150,
-        temperature=0.7,
-        insertion_position="random",
-    )
-    print(
-        transformer.transform(
-            "The Amazon rainforest covers most of the Amazon basin of South America. "
-            "The basin covers some 7,000,000 km2, of which 5,500,000 km2 are covered "
-            "by the rainforest.",
-            "7,000,000 km2",
-        )
-    )

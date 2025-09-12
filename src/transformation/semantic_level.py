@@ -190,12 +190,13 @@ class BacktranslationTransformation(TransformationBase):
 
         return current_text
 
-    def transform(self, context: str, answer: str) -> str | list[str]:
+    def transform(self, context: str, question: str, answer: str) -> str | list[str]:
         """
         Transform the input context using back translation.
 
         Args:
             context: The input context to transform.
+            question: The input question to transform.
             answer: The input answer (not used in semantic transformation).
 
         Returns:

@@ -168,7 +168,7 @@ class RandomSequenceTransformation(TransformationBase):
             random_sequence = self._generate_random_sequence()
             return self._insert_at_end(context, random_sequence)
 
-    def transform(self, context: str, answer: str) -> str | list[str]:
+    def transform(self, context: str, question: str, answer: str) -> str | list[str]:
         """
         Transform the sentence by inserting random words at the specified location.
 
