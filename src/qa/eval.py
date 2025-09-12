@@ -126,13 +126,13 @@ class QAEval:
         predictions = self.qa_model.get_answers(questions_and_contexts)
 
         # Display some predictions
-        logger.info("=" * 80)
+        logger.info("=" * 160)
         logger.info("Sample questions and predictions:")
         for prediction in zip(questions_and_contexts, predictions[:10], strict=False):
             logger.info(
                 f"  {prediction[0]['question']} -> {prediction[1]['prediction_text']}"
             )
-        logger.info("=" * 80)
+        logger.info("=" * 160)
 
         # Ensure predictions and references have the same length
         if len(predictions) != len(reference_answers):
