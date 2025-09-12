@@ -83,6 +83,8 @@ Context: {context}
 
 Question: {question}
 
+Answer: {answer}
+
 Position to insert the distraction sentence to context: {self.insertion_position}
 
 Generate ONLY the distraction sentence, no explanation or additional text:"""
