@@ -78,9 +78,9 @@ Given the following context and answer, generate a single distraction sentence t
 4. Avoid contradicting facts a human would immediately detect as false, but be highly
    confusable for models.
 5. Matches the answer type (e.g., if the question asks for a date,
-include a date-like phrase; if it asks for a person, mention a person).
-For example, if the answer is a number, the distraction sentence should contain
-a distracting number.
+    include a date-like phrase; if it asks for a person, mention a person).
+    For example, if the answer is a number, the distraction sentence should contain
+    a distracting number.
 
 Context: {context}
 
