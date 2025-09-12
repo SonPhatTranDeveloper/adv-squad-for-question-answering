@@ -73,18 +73,19 @@ QA model is more likely to produce an incorrect answer.
 
 Given the following context and answer, generate a single distraction sentence that:
 1. Is grammatically correct and fits naturally within the context's topic and style
+2. Use the structure of the question to generate a highly confusing
+   distraction sentence.
+   For example:
+   - If the question is "What is the capital of France?",
+   the distraction sentence should be:
+   "Rome is the capital of Italy, which is very close to France."
 2. Contains information that will mislead a QA model away from the correct answer
-3. Avoid contradicting facts a human would immediately detect as false, but be highly
-   confusable for models.
 4. Matches the answer type (e.g., if the question asks for a date,
    include a date-like phrase; if it asks for a person, mention a person).
 
 Context: {context}
-
 Question: {question}
-
 Answer: {answer}
-
 Position to insert the distraction sentence to context: {self.insertion_position}
 
 Generate ONLY the distraction sentence, no explanation or additional text:"""
