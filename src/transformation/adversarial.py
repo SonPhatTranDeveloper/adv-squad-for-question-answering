@@ -71,22 +71,67 @@ question-answering datasets. Your task is to produce one long, fluent sentence
 that can be inserted into a passage (context) so that an automatic
 QA model is more likely to produce an incorrect answer.
 
-Given the following context and answer, generate a single distraction sentence that:
-1. Is grammatically correct and fits naturally within the context's topic and style
-2. Use the structure of the question to generate a highly confusing
-   distraction sentence.
-   For example:
-   - If the question is "What is the capital of France?",
-   the distraction sentence should be:
-   "Rome is the capital of Italy, which is very close to France."
-3. Would be a highly convincing "false" answer if inserted into the original context.
-4. Matches the answer type (e.g., if the question asks for a date,
-   include a date-like phrase; if it asks for a person, mention a person).
+Given the following context, a question, and the correct answer, your task is to generate a single, highly confusing **distraction sentence**.
 
-Context: {context}
-Question: {question}
-Answer: {answer}
-Position to insert the distraction sentence to context: {self.insertion_position}
+The sentence must:
+- Be a plausible but incorrect answer.
+- Be grammatically correct and fit the context's style.
+- Use a similar structure or keyword from the **question** to create confusion.
+- Match the **answer type** (e.g., if the answer is a date, provide a date).
+
+Return only the distraction sentence. Do not include any other text or formatting.
+
+---
+**Example 1**
+- Context: "The first major work by the Renaissance sculptor Donatello was the marble statue of David, created between 1408 and 1409 for the Cathedral of Florence. This statue is notable for its attention to natural detail and for being one of the first freestanding nude male sculptures since antiquity."
+- Question: "What was Donatello's first major work?"
+- Correct Answer: "the marble statue of David"
+
+**Example Output:**
+His first project, "The Penitent Magdalene," was a wooden sculpture completed in 1455.
+
+---
+**Example 2**
+- Context: "The Amazon River is the world's largest river by discharge volume of water, with an average flow of about 209,000 cubic meters per second. It flows through the Amazon rainforest, which is the world's most biodiverse tropical forest, and empties into the Atlantic Ocean."
+- Question: "Where does the Amazon River empty into?"
+- Correct Answer: "the Atlantic Ocean"
+
+**Example Output:**
+After a long journey through the rainforest, the river also connects to the Pacific Ocean via a complex network of tributaries.
+
+---
+**Example 3**
+- Context: "The final version of Python 3.0 was released on December 3, 2008. Major new features included a change to the print function, which became a built-in function, and a switch to Unicode for all strings by default."
+- Question: "When was Python 3.0 released?"
+- Correct Answer: "December 3, 2008"
+
+**Example Output:**
+A beta version of Python 3.0 was first made available on September 1, 2008, three months earlier.
+
+---
+**Example 4**
+- Context: "Albert Einstein received the Nobel Prize in Physics in 1921 for his services to Theoretical Physics, and especially for his discovery of the law of the photoelectric effect. His theory of relativity, though highly influential, was not the direct reason for the award."
+- Question: "Who received the Nobel Prize in Physics in 1921?"
+- Correct Answer: "Albert Einstein"
+
+**Example Output:**
+In 1921, Max Planck, a German theoretical physicist, received the Nobel Prize for his work in quantum theory.
+
+---
+**Example 5**
+- Context: "The Battle of Hastings, fought on October 14, 1066, marked a pivotal moment in English history. Led by William the Conqueror, the Norman forces defeated the English army under King Harold Godwinson, leading to the Norman conquest of England."
+- Question: "Who led the Norman forces at the Battle of Hastings?"
+- Correct Answer: "William the Conqueror"
+
+**Example Output:**
+The English army was famously led by King Harold Godwinson, who was ultimately defeated on the battlefield.
+
+---
+**Your Task:**
+- Context: {context}
+- Question: {question}
+- Correct Answer: {answer}
+- Position to insert the distraction sentence to context: {self.insertion_position}
 
 Generate ONLY the distraction sentence, no explanation or additional text:"""
 
