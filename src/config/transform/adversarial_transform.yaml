@@ -1,0 +1,12 @@
+# YAML configuration for the Adversarial transformation using GPT-4o
+
+transform:
+  _target_: src.transformation.adversarial.AdversarialTransformation
+  model: "gpt-4o"
+  max_tokens: 150
+  temperature: 0.7
+  insertion_position: "random"  # Options: "start", "end", "random"
+  num_transformations: 1
+
+name: |
+  adversarial/gpt4o_${transform.transform.model}_tokens_${transform.transform.max_tokens}_temp_${transform.transform.temperature}_pos_${transform.transform.insertion_position}
