@@ -193,6 +193,8 @@ Now generate ONE distraction sentence for the following input:
 Context: {context}
 Question: {question}
 Answer: {answer}
+
+Make sure the added sentence does not contradict or alter the original Answer’s correctness.
 """
 
         return new_prompt
