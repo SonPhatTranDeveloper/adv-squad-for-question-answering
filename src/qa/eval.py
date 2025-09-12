@@ -7,6 +7,8 @@ from src.qa.base import QABase
 from src.qa.bert import BertQA
 from src.utils.dataset import SQuADDataset
 
+
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -63,8 +65,8 @@ class QAEval:
                 {
                     "id": item.get("id"),
                     "answers": {
-                        "text": item.get("answer"),
-                        "answer_start": item.get("answer_start_char_idx"),
+                        "text": [item.get("answer")],
+                        "answer_start": [item.get("answer_start_char_idx")],
                     },
                 }
             )
@@ -145,9 +147,3 @@ class QAEval:
 
         return results
 
-
-if __name__ == "__main__":
-    dataset = SQuADDataset("data/squad/squad_small.csv")
-    qa_model = BertQA()
-    eval = QAEval(dataset, qa_model)
-    eval.eval()
