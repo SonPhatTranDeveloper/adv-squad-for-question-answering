@@ -1,5 +1,5 @@
 dataset:
-  _target_: src.dataset.squad.SQuADDataset
+  _target_: src.utils.dataset.SQuADDataset
   csv_file: data/squad/squad_medium.csv
 
 qa_model:
