@@ -67,7 +67,7 @@ class AdversarialTransformation(TransformationBase):
             Formatted prompt for GPT
         """
         prompt = f"""You are an expert adversarial example generator for
-question-answering datasets. Your task is to produce one short, fluent sentence
+question-answering datasets. Your task is to produce one long, fluent sentence
 that can be inserted into a passage (context) so that an automatic
 QA model is more likely to produce an incorrect answer.
 
