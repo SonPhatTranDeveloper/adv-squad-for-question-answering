@@ -24,8 +24,8 @@ class BacktranslationTransformation(TransformationBase):
         )
         self.augmenter = Augmenter(self.transformation, constraints=[])
 
-    def transform(self, sentence: str) -> str:
-        return self.augmenter.augment(sentence)
+    def transform(self, context: str, answer: str) -> str:
+        return self.augmenter.augment(context)
 
 
 if __name__ == "__main__":

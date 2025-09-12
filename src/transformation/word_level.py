@@ -100,8 +100,8 @@ class CLARETransformation(TransformationBase):
             transformations_per_example=self.num_transformations,
         )
 
-    def transform(self, sentence: str) -> str:
-        return self.augmenter.augment(sentence)
+    def transform(self, context: str, answer: str) -> str:
+        return self.augmenter.augment(context)
 
 
 if __name__ == "__main__":

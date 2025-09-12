@@ -142,49 +142,49 @@ class RandomSequenceTransformation(TransformationBase):
 
         return " ".join(words)
 
-    def _transform_single(self, sentence: str) -> str:
+    def _transform_single(self, context: str) -> str:
         """
         Transform the sentence by inserting random words at the specified location.
 
         Args:
-            sentence: The input sentence to transform
+            context: The input context to transform
 
         Returns:
             The transformed sentence with random words inserted
         """
         if self.insertion_location == InsertionLocation.START:
             random_sequence = self._generate_random_sequence()
-            return self._insert_at_start(sentence, random_sequence)
+            return self._insert_at_start(context, random_sequence)
         elif self.insertion_location == InsertionLocation.END:
             random_sequence = self._generate_random_sequence()
-            return self._insert_at_end(sentence, random_sequence)
+            return self._insert_at_end(context, random_sequence)
         elif self.insertion_location == InsertionLocation.MIDDLE:
             random_sequence = self._generate_random_sequence()
-            return self._insert_at_middle(sentence, random_sequence)
+            return self._insert_at_middle(context, random_sequence)
         elif self.insertion_location == InsertionLocation.SPREAD:
-            return self._insert_spread(sentence)
+            return self._insert_spread(context)
         else:
             # Default to end if unknown location
             random_sequence = self._generate_random_sequence()
-            return self._insert_at_end(sentence, random_sequence)
+            return self._insert_at_end(context, random_sequence)
 
-    def transform(self, sentence: str) -> str | list[str]:
+    def transform(self, context: str, answer: str) -> str | list[str]:
         """
         Transform the sentence by inserting random words at the specified location.
 
         Args:
-            sentence: The input sentence to transform
+            context: The input context to transform
+            answer: The input answer to transform
 
         Returns:
             Either a single transformed string (if num_transformations=1) or
             a list of transformed strings (if num_transformations>1)
         """
         if self.num_transformations == 1:
-            return self._transform_single(sentence)
+            return self._transform_single(context)
         else:
             return [
-                self._transform_single(sentence)
-                for _ in range(self.num_transformations)
+                self._transform_single(context) for _ in range(self.num_transformations)
             ]
 
 

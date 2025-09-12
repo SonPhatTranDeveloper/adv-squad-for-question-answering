@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 def process_single_row(
-    row_data: tuple[int, pd.Series], transformer: Any, context_col: str
+    row_data: tuple[int, pd.Series], transformer: Any, context_col: str, answer_col: str
 ) -> tuple[int, list[pd.Series], int]:
     """
     Process a single row for transformation.
@@ -41,12 +41,13 @@ def process_single_row(
         row_data: Tuple of (index, row) from DataFrame.iterrows()
         transformer: Transformation object with a transform method
         context_col: Name of the context column to transform
-
+        answer_col: Name of the answer column to transform
     Returns:
         Tuple of (original_index, list_of_augmented_rows, transformation_count)
     """
     idx, row = row_data
     context = row[context_col]
+    answer = row[answer_col]
     augmented_rows = []
     transformation_count = 0
 
@@ -58,7 +59,7 @@ def process_single_row(
         return idx, augmented_rows, transformation_count
 
     try:
-        transformed = transformer.transform(str(context))
+        transformed = transformer.transform(context, answer)
 
         # Handle case where transformer returns a list of transformations
         if isinstance(transformed, list) and len(transformed) > 0:
@@ -98,6 +99,7 @@ def transform_context_column(
     df: pd.DataFrame,
     transformer: Any,
     context_col: str = "context",
+    answer_col: str = "answer",
     max_workers: int = 4,
 ) -> pd.DataFrame:
     """
@@ -109,6 +111,7 @@ def transform_context_column(
         df: Input DataFrame containing the dataset
         transformer: Transformation object with a transform method
         context_col: Name of the context column to transform
+        answer_col: Name of the answer column to transform
         max_workers: Maximum number of threads to use for parallel processing
 
     Returns:
@@ -137,38 +140,39 @@ def transform_context_column(
     progress_lock = Lock()
 
     # Create progress bar for transformation process
-    with tqdm(total=len(df), desc="Transforming contexts", unit="row") as pbar:
-        # Use ThreadPoolExecutor for parallel processing
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all rows for processing
-            future_to_row = {
-                executor.submit(
-                    process_single_row, row_data, transformer, context_col
-                ): row_data[0]
-                for row_data in df.iterrows()
-            }
+    with (
+        tqdm(total=len(df), desc="Transforming contexts", unit="row") as pbar,
+        ThreadPoolExecutor(max_workers=max_workers) as executor,
+    ):
+        # Submit all rows for processing
+        future_to_row = {
+            executor.submit(
+                process_single_row, row_data, transformer, context_col, answer_col
+            ): row_data[0]
+            for row_data in df.iterrows()
+        }
 
-            # Process completed futures
-            for future in as_completed(future_to_row):
-                original_idx = future_to_row[future]
-                try:
-                    idx, augmented_rows, transformation_count = future.result()
-                    results_dict[idx] = augmented_rows
+        # Process completed futures
+        for future in as_completed(future_to_row):
+            original_idx = future_to_row[future]
+            try:
+                idx, augmented_rows, transformation_count = future.result()
+                results_dict[idx] = augmented_rows
 
-                    # Thread-safe progress update
-                    with progress_lock:
-                        total_transformations += transformation_count
-                        pbar.set_postfix({"transformations": total_transformations})
-                        pbar.update(1)
+                # Thread-safe progress update
+                with progress_lock:
+                    total_transformations += transformation_count
+                    pbar.set_postfix({"transformations": total_transformations})
+                    pbar.update(1)
 
-                except Exception as e:
-                    logger.error(f"Unexpected error processing row {original_idx}: {e}")
-                    # Create a fallback row in case of unexpected errors
-                    original_row = df.loc[original_idx].copy()
-                    results_dict[original_idx] = [original_row]
+            except Exception as e:
+                logger.error(f"Unexpected error processing row {original_idx}: {e}")
+                # Create a fallback row in case of unexpected errors
+                original_row = df.loc[original_idx].copy()
+                results_dict[original_idx] = [original_row]
 
-                    with progress_lock:
-                        pbar.update(1)
+                with progress_lock:
+                    pbar.update(1)
 
     # Reconstruct augmented rows in original order
     all_augmented_rows = []
@@ -211,7 +215,7 @@ def main(config: DictConfig) -> None:
     base_output_file = Path(config.dataset.output_file)
     context_col = config.dataset.get("context_col", "context")
     max_workers = config.dataset.get("max_workers", 4)
-
+    answer_col = config.dataset.get("answer_col", "answer")
     # Extract transform name from config if available
     transform_name = config.transform.get("name", "").strip()
     if transform_name:
@@ -248,7 +252,9 @@ def main(config: DictConfig) -> None:
     logger.info(f"Created transformer: {type(transformer).__name__}")
 
     # Transform the dataset
-    augmented_df = transform_context_column(df, transformer, context_col, max_workers)
+    augmented_df = transform_context_column(
+        df, transformer, context_col, answer_col, max_workers
+    )
 
     # Create output directory if needed
     output_file.parent.mkdir(parents=True, exist_ok=True)

@@ -4,9 +4,7 @@ from typing import Any
 from evaluate import load
 
 from src.qa.base import QABase
-from src.qa.bert import BertQA
 from src.utils.dataset import SQuADDataset
-
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -146,4 +144,3 @@ class QAEval:
         logger.info(f"  Total Samples: {results['total_samples']}")
 
         return results
-

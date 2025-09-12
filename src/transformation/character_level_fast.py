@@ -173,12 +173,13 @@ class CharacterLevelTransformationFast(TransformationBase):
         logger.warning("=" * 80)
         return original_sentence
 
-    def transform(self, sentence: str) -> str | list[str]:
+    def transform(self, context: str, answer: str) -> str | list[str]:
         """
         Transform the input sentence using character-level transformations.
 
         Args:
-            sentence: The input sentence to transform.
+            context: The input context to transform.
+            answer: The input answer to transform.
 
         Returns:
             If num_transformations == 1: The transformed sentence (str).
@@ -187,7 +188,7 @@ class CharacterLevelTransformationFast(TransformationBase):
         transformed_sentences = []
 
         for _ in range(self.num_transformations):
-            transformed_sentence = self._transform_single_sentence(sentence)
+            transformed_sentence = self._transform_single_sentence(context)
             transformed_sentences.append(transformed_sentence)
 
         # Return single string if num_transformations == 1, otherwise return list
@@ -195,19 +196,3 @@ class CharacterLevelTransformationFast(TransformationBase):
             return transformed_sentences[0]
         else:
             return transformed_sentences
-
-
-if __name__ == "__main__":
-    """
-    Main function to test the CharacterLevelTransformation classes.
-    """
-    test_sentence = """
-        Architecturally, the school has a Catholic character. Atop the Main Building's gold dome is a golden statue of the Virgin Mary. Immediately in front of the Main Building and facing it, is a copper statue of Christ with arms upraised with the legend "Venite Ad Me Omnes". Next to the Main Building is the Basilica of the Sacred Heart. Immediately behind the basilica is the Grotto, a Marian place of prayer and reflection. It is a replica of the grotto at Lourdes, France where the Virgin Mary reputedly appeared to Saint Bernadette Soubirous in 1858. At the end of the main drive (and in a direct line that connects through 3 statues and the Gold Dome), is a simple, modern stone statue of Mary.
-    """
-
-    # Test fast transformation with single transformation (returns string)
-    fast_transformer_single = CharacterLevelTransformationFast(
-        num_transformations=1, pct_words_to_swap=0.7, max_attempts=5, threshold=0.7
-    )
-    result_single = fast_transformer_single.transform(test_sentence)
-    print(result_single)
