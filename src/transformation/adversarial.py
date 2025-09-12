@@ -73,19 +73,17 @@ QA model is more likely to produce an incorrect answer.
 
 Given the following context and answer, generate a single distraction sentence that:
 1. Is grammatically correct and fits naturally within the context's topic and style
-2. Contains information that could mislead a QA model away from the correct answer
+2. Contains information that will mislead a QA model away from the correct answer
 3. Avoid contradicting facts a human would immediately detect as false, but be highly
    confusable for models.
 4. Matches the answer type (e.g., if the question asks for a date,
    include a date-like phrase; if it asks for a person, mention a person).
-   For example, if the answer is a number, the distraction sentence should contain
-   a distracting number.
 
 Context: {context}
 
 Question: {question}
 
-Insert position: {self.insertion_position}
+Position to insert the distraction sentence to context: {self.insertion_position}
 
 Generate ONLY the distraction sentence, no explanation or additional text:"""
 
