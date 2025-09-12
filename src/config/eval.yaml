@@ -1,0 +1,11 @@
+dataset:
+  _target_: src.dataset.squad.SQuADDataset
+  csv_file: data/squad/squad_medium.csv
+
+qa_model:
+  _target_: src.qa.bert.BertQA
+  model_name: "distilbert-base-cased-distilled-squad"
+  max_length: 512
+  max_answer_length: 30
+  batch_size: 8
+  device: "cuda"
