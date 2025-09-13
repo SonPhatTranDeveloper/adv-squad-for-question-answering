@@ -1,5 +1,6 @@
 import logging
 import os
+import random
 
 import openai
 
@@ -52,9 +53,7 @@ class AdversarialTransformation(TransformationBase):
 
         logger.info(f"Initialized AdversarialTransformation with model: {model}")
 
-    def _generate_perturbed_question_prompt(
-        self, question: str, answer: str
-    ) -> str:
+    def _generate_perturbed_question_prompt(self, question: str, answer: str) -> str:
         """
         Create a prompt for GPT to generate a perturbed question (Step 1).
 
@@ -250,20 +249,21 @@ Distraction Sentence:"""
 
         sentences = context.split(". ")
 
+        # Remove the '.' from the distraction if it exists
+        distraction = distraction.rstrip(".")
+
         if self.insertion_position == "start":
             # Insert at the beginning
-            modified_context = f"{distraction} {context}"
+            modified_context = f"{distraction}. {context}"
         elif self.insertion_position == "end":
             # Insert at the end
-            modified_context = f"{context} {distraction}"
+            modified_context = f"{context} {distraction}."
         else:  # random
             # Insert randomly in the middle
             if len(sentences) <= 2:
                 # If context is too short, insert at the end
-                modified_context = f"{context} {distraction}"
+                modified_context = f"{context} {distraction}."
             else:
-                import random
-
                 # Insert at a random position (not first or last sentence)
                 insert_pos = random.randint(1, len(sentences) - 1)
                 sentences.insert(insert_pos, distraction)
@@ -298,42 +298,56 @@ Distraction Sentence:"""
 
         for i in range(self.num_transformations):
             try:
-                logger.info(f"Starting transformation {i + 1}/{self.num_transformations}")
-                
+                logger.info(
+                    f"Starting transformation {i + 1}/{self.num_transformations}"
+                )
+
                 # Step 1: Generate perturbed question
                 logger.debug("Step 1: Generating perturbed question")
-                perturb_prompt = self._generate_perturbed_question_prompt(question, answer)
+                perturb_prompt = self._generate_perturbed_question_prompt(
+                    question, answer
+                )
                 perturbed_question = self._call_gpt(perturb_prompt)
-                
+
                 if not perturbed_question.strip():
-                    logger.warning("Failed to generate perturbed question, using original context")
+                    logger.warning(
+                        "Failed to generate perturbed question, using original context"
+                    )
                     results.append(context)
                     continue
-                
+
                 logger.debug(f"Perturbed question: {perturbed_question}")
 
                 # Step 2: Generate fake answer for perturbed question
                 logger.debug("Step 2: Generating fake answer")
-                fake_answer_prompt = self._generate_fake_answer_prompt(perturbed_question, answer)
+                fake_answer_prompt = self._generate_fake_answer_prompt(
+                    perturbed_question, answer
+                )
                 fake_answer = self._call_gpt(fake_answer_prompt)
-                
+
                 if not fake_answer.strip():
-                    logger.warning("Failed to generate fake answer, using original context")
+                    logger.warning(
+                        "Failed to generate fake answer, using original context"
+                    )
                     results.append(context)
                     continue
-                
+
                 logger.debug(f"Fake answer: {fake_answer}")
 
                 # Step 3: Combine into distraction sentence
                 logger.debug("Step 3: Creating distraction sentence")
-                distraction_prompt = self._generate_distraction_sentence_prompt(perturbed_question, fake_answer)
+                distraction_prompt = self._generate_distraction_sentence_prompt(
+                    perturbed_question, fake_answer
+                )
                 distraction = self._call_gpt(distraction_prompt)
-                
+
                 if not distraction.strip():
-                    logger.warning("Failed to generate distraction sentence, using original context")
+                    logger.warning(
+                        "Failed to generate distraction sentence, using original context"
+                    )
                     results.append(context)
                     continue
-                
+
                 logger.debug(f"Distraction sentence: {distraction}")
 
                 # Insert distraction into context
