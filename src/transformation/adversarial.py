@@ -5,6 +5,7 @@ import random
 import openai
 
 from src.transformation.base import TransformationBase
+from src.utils.caching import persistent_cache
 
 logger = logging.getLogger(__name__)
 
@@ -271,7 +272,7 @@ Distraction Sentence:"""
 
         return modified_context
 
-    @cache(cache_dir="./cache")
+    @persistent_cache(cache_dir="./cache")
     def transform(self, context: str, question: str, answer: str) -> str | list[str]:
         """
         Transform the context by adding adversarial distraction sentences.
