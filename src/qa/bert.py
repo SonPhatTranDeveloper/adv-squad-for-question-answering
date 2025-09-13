@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 import torch
+from tqdm import tqdm
 from transformers import pipeline
 
 from src.qa.base import QABase
@@ -105,7 +106,14 @@ class BertQA(QABase):
 
         try:
             # Process in batches for better performance
-            for i in range(0, len(questions_and_contexts), self.batch_size):
+            total_batches = (
+                len(questions_and_contexts) + self.batch_size - 1
+            ) // self.batch_size
+            batch_range = range(0, len(questions_and_contexts), self.batch_size)
+
+            for i in tqdm(
+                batch_range, desc="Processing QA batches", total=total_batches
+            ):
                 batch = questions_and_contexts[i : i + self.batch_size]
 
                 # Prepare batch inputs for transformers pipeline
