@@ -271,6 +271,7 @@ Distraction Sentence:"""
 
         return modified_context
 
+    @cache(cache_dir="./cache")
     def transform(self, context: str, question: str, answer: str) -> str | list[str]:
         """
         Transform the context by adding adversarial distraction sentences.
