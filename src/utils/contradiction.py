@@ -8,10 +8,8 @@ logger = logging.getLogger(__name__)
 
 class ContradictionChecker:
     """
-    Check if a new sentence is contradictory to a given context using OpenAI ChatGPT.
-
-    This class uses OpenAI's GPT models to determine if a given sentence
-    contradicts the information provided in a context.
+    Check if a new sentence would change the correct answer to a given question,
+    given the original context and answer, using OpenAI GPT models.
     """
 
     def __init__(
@@ -40,30 +38,31 @@ class ContradictionChecker:
         self.client = OpenAI(api_key=api_key)
         logger.info(f"Initialized ContradictionChecker with model: {self.model_name}")
 
-    def check(self, sentence: str, context: str) -> bool:
+    def check(self, sentence: str, context: str, question: str, answer: str) -> bool:
         """
-        Check if a sentence contradicts the given context.
+        Check if a sentence would change the correct answer to the question.
 
         Args:
-            sentence: The sentence to check for contradiction
+            sentence: The sentence to check
             context: The context to check against
-
+            question: The question being asked
+            answer: The current correct answer
         Returns:
-            True if the sentence contradicts the context, False otherwise
+            True if the sentence changes the answer, False otherwise
         """
-        prompt = self._create_contradiction_prompt(sentence, context)
+        prompt = self._create_answer_change_prompt(sentence, context, question, answer)
 
         response = self.client.chat.completions.create(
             model=self.model_name,
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a logical reasoning assistant that determines if statements contradict given contexts.",
+                    "content": "You are a logical reasoning assistant that determines if a sentence would change a question's answer.",
                 },
                 {"role": "user", "content": prompt},
             ],
             temperature=self.temperature,
-            max_tokens=10,
+            max_tokens=20,
         )
 
         result = response.choices[0].message.content.strip().lower()
@@ -76,25 +75,115 @@ class ContradictionChecker:
         else:
             raise ValueError(f"Unexpected response from OpenAI: {result}")
 
-    def _create_contradiction_prompt(self, sentence: str, context: str) -> str:
+    def _create_answer_change_prompt(
+        self, sentence: str, context: str, question: str, answer: str
+    ) -> str:
         """
-        Create a prompt for the contradiction checking task.
+        Create a prompt for the answer-change checking task.
 
         Args:
             sentence: The sentence to check
             context: The context to check against
-
+            question: The question being asked
+            answer: The current correct answer
         Returns:
             The formatted prompt string
         """
-        return f"""Given the following context and a sentence, determine if the sentence contradicts any information in the context.
+        return f"""You are a logical reasoning assistant.
+
+Task:
+Determine whether the given sentence, if added to the context, would change the correct answer to the question.
+
+Important rules:
+- Ignore minor stylistic differences, synonyms, or paraphrasing.
+- Focus only on whether the new sentence would cause a different answer.
+- Do not over-interpret or make assumptions beyond what is explicitly written.
+
+### Examples ###
+
+Context:
+Paris is the capital of France.
+Question:
+What is the capital of France?
+Original Answer:
+Paris
+
+Sentence:
+London is the capital of France.
+
+Correct Output:
+yes
+
+(since the added sentence changes the answer to the question)
+
+---
+
+Context:
+The Amazon River is the second longest river in the world, after the Nile.
+Question:
+What is the longest river in the world?
+Original Answer:
+Nile
+
+Sentence:
+The Amazon River flows through South America.
+
+Correct Output:
+no
+
+(since the added sentence does not change the answer to the question)
+
+---
+
+Context:
+Albert Einstein developed the theory of relativity.
+Question:
+Who developed the theory of relativity?
+Original Answer:
+Albert Einstein
+
+Sentence:
+Einstein was born in Germany.
+
+Correct Output:
+no
+
+(since the added sentence does not change the answer to the question)
+
+---
+
+Context:
+The Great Wall of China was built to protect Chinese states from invasions.
+Question:
+Where was the Great Wall of China built?
+Original Answer:
+China
+
+Sentence:
+The Great Wall of China is located in India.
+
+Correct Output:
+yes
+
+(since the added sentence changes the answer to the question)
+
+---
+
+### Now your turn ###
 
 Context:
 {context}
 
-Sentence to check:
+Question:
+{question}
+
+Original Answer:
+{answer}
+
+Sentence:
 {sentence}
 
-Does the sentence contradict the context factually? Answer with only "yes" or "no".
-
-Answer:"""
+Final instruction:
+Would the sentence change the correct answer to the question?
+Reply with ONLY one word: "yes" or "no".
+"""
