@@ -7,10 +7,10 @@
 
 transform:
   _target_: src.transformation.adversarial.AdversarialTransformation
-  model: "gpt-4o"
+  model: "gpt-4o-mini"
   max_tokens: 150  # Reduced since each step is simpler than the original combined prompt
   temperature: 0.7
-  insertion_position: "end"  # Options: "start", "end", "random"
+  insertion_position: "start"  # Options: "start", "end", "random"
   num_transformations: 1
   max_contradiction_attempts: 5  # Maximum attempts to generate non-contradictory distractions
   contradiction_checker:
@@ -19,4 +19,4 @@ transform:
     temperature: 0.1  # Lower temperature for more consistent contradiction detection
 
 name: |
-  adversarial/gpt4o_3step_${transform.transform.model}_tokens_${transform.transform.max_tokens}_temp_${transform.transform.temperature}_pos_${transform.transform.insertion_position}
+  adversarial/gpt4o_4step_${transform.transform.model}_tokens_${transform.transform.max_tokens}_temp_${transform.transform.temperature}_pos_${transform.transform.insertion_position}
