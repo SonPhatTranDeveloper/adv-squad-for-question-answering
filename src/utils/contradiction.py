@@ -67,6 +67,8 @@ class ContradictionChecker:
 
         result = response.choices[0].message.content.strip().lower()
 
+        print(f"Result: {result}")
+
         # Parse the response - expect "yes" or "no"
         if result.startswith("yes"):
             return True
@@ -120,8 +122,10 @@ yes
 
 Context:
 The Amazon River is the second longest river in the world, after the Nile.
+
 Question:
 What is the longest river in the world?
+
 Original Answer:
 Nile
 
@@ -137,8 +141,10 @@ no
 
 Context:
 Albert Einstein developed the theory of relativity.
+
 Question:
 Who developed the theory of relativity?
+
 Original Answer:
 Albert Einstein
 
@@ -154,8 +160,10 @@ no
 
 Context:
 The Great Wall of China was built to protect Chinese states from invasions.
+
 Question:
 Where was the Great Wall of China built?
+
 Original Answer:
 China
 

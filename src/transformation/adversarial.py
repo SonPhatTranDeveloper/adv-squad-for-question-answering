@@ -60,12 +60,14 @@ class AdversarialTransformation(TransformationBase):
         self.max_contradiction_attempts = max_contradiction_attempts
         logger.info(f"Initialized AdversarialTransformation with model: {model}")
 
-        # Initialize default contradiction checker if none provided
-        if self.contradiction_checker is None:
+        if self.contradiction_checker is not None:
             logger.info(
-                "No contradiction checker provided, initializing default ContradictionChecker"
+                "Contradiction checker enabled - will verify non-contradictory distractions"
             )
-            self.contradiction_checker = ContradictionChecker()
+        else:
+            logger.info(
+                "No contradiction checker provided - will skip contradiction checking"
+            )
 
     def _generate_perturbed_question_prompt(self, question: str, answer: str) -> str:
         """
@@ -81,8 +83,8 @@ class AdversarialTransformation(TransformationBase):
         prompt = f"""You are an expert adversarial example generator for QA datasets. Your task is to perturb a question by changing key entities while keeping the same question structure and type.
 
 Instructions:
-- Perturb ONLY ONE key entity (especially proper nouns like *NAMES*, *DATES*, *NUMBERS*, *LOCATIONS*, *ORGANIZATIONS*, etc.) in the question
-- Choose the most IMPORTANT key entity to perturb
+- Perturb at least two key entities (especially proper nouns like *NAMES*, *DATES*, *NUMBERS*, *LOCATIONS*, *ORGANIZATIONS*, etc.) in the question
+- Make sure the chosen key entities are important and relevant to the question and answer
 - Use plausible alternatives (synonyms, antonyms, or nearby entities)
 - Keep the same question type and structure
 - The perturbed question should be grammatically correct and natural
@@ -167,7 +169,12 @@ Fake Answer:"""
         return prompt
 
     def _generate_distraction_sentence_prompt(
-        self, perturbed_question: str, fake_answer: str
+        self,
+        perturbed_question: str,
+        fake_answer: str,
+        context: str,
+        question: str,
+        answer: str,
     ) -> str:
         """
         Create a prompt for GPT to combine perturbed question and fake answer into a distraction sentence (Step 3).
@@ -175,7 +182,9 @@ Fake Answer:"""
         Args:
             perturbed_question: The perturbed question from step 1
             fake_answer: The fake answer from step 2
-
+            context: The original context
+            question: The original question
+            answer: The original answer
         Returns:
             Formatted prompt for GPT to create the final distraction sentence
         """
@@ -185,6 +194,7 @@ Instructions:
 - Combine the perturbed question and fake answer into ONE natural, fluent sentence
 - The sentence should be grammatically correct and natural in style
 - The sentence should provide the fake answer as factual information
+- The sentence should not contradict the original question and answer, given the original context
 - Return ONLY the distraction sentence (no explanations)
 
 Examples:
@@ -213,6 +223,9 @@ Now create a distraction sentence for the following:
 
 Perturbed Question: {perturbed_question}
 Fake Answer: {fake_answer}
+Context: {context}
+Question: {question}
+Answer: {answer}
 
 Distraction Sentence:"""
 
@@ -289,8 +302,9 @@ Distraction Sentence:"""
         self, context: str, question: str, answer: str
     ) -> str:
         """
-        Generate a distraction sentence that does not contradict the given context.
-        Uses the 3-step process and checks for contradictions, regenerating if needed.
+        Generate a distraction sentence. If contradiction checker is provided,
+        ensures the distraction does not contradict the given context.
+        Uses the 3-step process and optionally checks for contradictions.
 
         Args:
             context: The original context to check against
@@ -298,7 +312,7 @@ Distraction Sentence:"""
             answer: The correct answer
 
         Returns:
-            A non-contradictory distraction sentence, or empty string if failed
+            A distraction sentence (non-contradictory if checker provided), or empty string if failed
         """
         for attempt in range(self.max_contradiction_attempts):
             logger.debug(
@@ -336,7 +350,7 @@ Distraction Sentence:"""
             # Step 3: Combine into distraction sentence
             logger.debug("Step 3: Creating distraction sentence")
             distraction_prompt = self._generate_distraction_sentence_prompt(
-                perturbed_question, fake_answer
+                perturbed_question, fake_answer, context, question, answer
             )
             distraction = self._call_gpt(distraction_prompt)
 
@@ -348,20 +362,27 @@ Distraction Sentence:"""
 
             logger.debug(f"Generated distraction: {distraction}")
 
-            # Check for contradiction
-            is_contradictory = self.contradiction_checker.check(
-                context=context,
-                question=question,
-                answer=answer,
-                sentence=distraction,
-            )
-
-            if not is_contradictory:
-                return distraction
-            else:
-                logger.debug(
-                    f"Distraction contradicts context on attempt {attempt + 1}, regenerating..."
+            # Check for contradiction only if checker is provided
+            if self.contradiction_checker is not None:
+                is_contradictory = self.contradiction_checker.check(
+                    context=context,
+                    question=question,
+                    answer=answer,
+                    sentence=distraction,
                 )
+
+                if not is_contradictory:
+                    return distraction
+                else:
+                    logger.debug(
+                        f"Distraction contradicts context on attempt {attempt + 1}, regenerating..."
+                    )
+            else:
+                # No contradiction checking - return the first valid distraction
+                logger.debug(
+                    "No contradiction checker provided, returning distraction without checking"
+                )
+                return distraction
 
         logger.warning(
             f"Failed to generate non-contradictory distraction after {self.max_contradiction_attempts} attempts"
@@ -372,11 +393,11 @@ Distraction Sentence:"""
     def transform(self, context: str, question: str, answer: str) -> str | list[str]:
         """
         Transform the context by adding adversarial distraction sentences.
-        Uses a 4-step process with separate OpenAI calls for better accuracy:
+        Uses a 3-4 step process with separate OpenAI calls for better accuracy:
         1. Perturb the original question
         2. Generate a fake answer for the perturbed question
         3. Combine into a fluent distraction sentence
-        4. Check for contradictions and regenerate if needed
+        4. (Optional) Check for contradictions and regenerate if needed (only if contradiction_checker provided)
 
         Args:
             context: The input context to transform
@@ -398,15 +419,13 @@ Distraction Sentence:"""
         for i in range(self.num_transformations):
             logger.info(f"Starting transformation {i + 1}/{self.num_transformations}")
 
-            # Generate non-contradictory distraction using the new method
+            # Generate distraction (with optional contradiction checking)
             distraction = self._generate_non_contradictory_distraction(
                 context, question, answer
             )
 
             if not distraction.strip():
-                logger.warning(
-                    "Failed to generate non-contradictory distraction, using original context"
-                )
+                logger.warning("Failed to generate distraction, using original context")
                 results.append(context)
                 continue
 

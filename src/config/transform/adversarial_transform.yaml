@@ -12,11 +12,11 @@ transform:
   temperature: 0.7
   insertion_position: "start"  # Options: "start", "end", "random"
   num_transformations: 1
-  max_contradiction_attempts: 99  # Maximum attempts to generate non-contradictory distractions
+  max_contradiction_attempts: 5  # Maximum attempts to generate non-contradictory distractions
   contradiction_checker:
     _target_: src.utils.contradiction.ContradictionChecker
     model_name: "gpt-4o"  # Use cheaper model for contradiction checking
-    temperature: 0.1  # Lower temperature for more consistent contradiction detection
+    temperature: 1.0  # Lower temperature for more consistent contradiction detection
 
 name: |
   adversarial/gpt4o_4step_${transform.transform.model}_tokens_${transform.transform.max_tokens}_temp_${transform.transform.temperature}_pos_${transform.transform.insertion_position}
