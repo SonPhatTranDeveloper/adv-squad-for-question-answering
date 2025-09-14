@@ -372,7 +372,7 @@ Distraction Sentence:"""
     def transform(self, context: str, question: str, answer: str) -> str | list[str]:
         """
         Transform the context by adding adversarial distraction sentences.
-        Uses a 3-step process with separate OpenAI calls for better accuracy:
+        Uses a 4-step process with separate OpenAI calls for better accuracy:
         1. Perturb the original question
         2. Generate a fake answer for the perturbed question
         3. Combine into a fluent distraction sentence
