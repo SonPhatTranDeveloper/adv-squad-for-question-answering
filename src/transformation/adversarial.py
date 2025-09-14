@@ -349,7 +349,12 @@ Distraction Sentence:"""
             logger.debug(f"Generated distraction: {distraction}")
 
             # Check for contradiction
-            is_contradictory = self.contradiction_checker.check(distraction, context)
+            is_contradictory = self.contradiction_checker.check(
+                context=context,
+                question=question,
+                answer=answer,
+                sentence=distraction,
+            )
 
             if not is_contradictory:
                 return distraction

@@ -38,19 +38,19 @@ class ContradictionChecker:
         self.client = OpenAI(api_key=api_key)
         logger.info(f"Initialized ContradictionChecker with model: {self.model_name}")
 
-    def check(self, sentence: str, context: str, question: str, answer: str) -> bool:
+    def check(self, context: str, question: str, answer: str, sentence: str) -> bool:
         """
         Check if a sentence would change the correct answer to the question.
 
         Args:
-            sentence: The sentence to check
             context: The context to check against
             question: The question being asked
             answer: The current correct answer
+            sentence: The sentence to check
         Returns:
             True if the sentence changes the answer, False otherwise
         """
-        prompt = self._create_answer_change_prompt(sentence, context, question, answer)
+        prompt = self._create_answer_change_prompt(context, question, answer, sentence)
 
         response = self.client.chat.completions.create(
             model=self.model_name,
@@ -76,16 +76,16 @@ class ContradictionChecker:
             raise ValueError(f"Unexpected response from OpenAI: {result}")
 
     def _create_answer_change_prompt(
-        self, sentence: str, context: str, question: str, answer: str
+        self, context: str, question: str, answer: str, sentence: str
     ) -> str:
         """
         Create a prompt for the answer-change checking task.
 
         Args:
-            sentence: The sentence to check
             context: The context to check against
             question: The question being asked
             answer: The current correct answer
+            sentence: The sentence to check
         Returns:
             The formatted prompt string
         """
