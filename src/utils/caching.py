@@ -223,9 +223,7 @@ def persistent_cache(cache_dir: str | Path | None = None):
     return cache(cache_dir=cache_dir, ttl_seconds=None)
 
 
-def timed_cache(
-    ttl_seconds: float = 3600, cache_dir: str | Path | None = None
-):
+def timed_cache(ttl_seconds: float = 3600, cache_dir: str | Path | None = None):
     """
     Time-limited disk cache decorator.
 
