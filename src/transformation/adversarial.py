@@ -217,13 +217,14 @@ Distraction Sentence:"""
         return prompt
 
     def _generate_modify_distraction_prompt(
-        self, original_question: str, distraction_sentence: str
+        self, original_question: str, previous_modified_distraction: str, distraction_sentence: str
     ) -> str:
         """
         Create a prompt for GPT to modify a distraction sentence that can answer the original question.
 
         Args:
             original_question: The original question that the distraction can answer
+            previous_modified_distraction: The previous modified distraction sentence that was generated
             distraction_sentence: The distraction sentence that needs to be modified
 
         Returns:
@@ -236,30 +237,35 @@ Instructions:
 - Remove or change key information that could be used to answer the question
 - Keep the sentence factually plausible and grammatically correct
 - Maintain the general topic and context of the sentence
-- The modified sentence should still be relevant to the overall context but not answer the specific question
+- Change it in a different way compared to the previous distraction sentence
 - Return ONLY the modified distraction sentence (no explanations)
 
 Examples:
 
 Original Question: "What is the capital of France?"
-Distraction Sentence: "Paris is the capital of France and a major cultural center."
+Previous Modified Distraction: "Paris is the capital of France and a major cultural center."
+Distraction Sentence: "Paris is the capital of France and a fun city to visit."
 Modified Distraction: "France is known for its rich cultural heritage and major cities."
 
 Original Question: "Who invented the telephone?"
+Previous Modified Distraction: "Alexander Graham Bell created the first telephone in 1876."
 Distraction Sentence: "Alexander Graham Bell invented the telephone in 1876."
 Modified Distraction: "The telephone was invented in 1876 and revolutionized communication."
 
 Original Question: "When was the Great Wall of China built?"
+Previous Modified Distraction: "The Great Wall of China was built during the Ming Dynasty from 1368 to 1644."
 Distraction Sentence: "The Great Wall of China was built during the Ming Dynasty from 1368 to 1644."
 Modified Distraction: "The Great Wall of China was constructed to protect against invasions from the north."
 
 Original Question: "How tall is Mount Everest?"
+Previous Modified Distraction: "Mount Everest above 8,000 meters tall and located in the Himalayas."
 Distraction Sentence: "Mount Everest is 8,848 meters tall and located in the Himalayas."
 Modified Distraction: "Mount Everest is located in the Himalayas and attracts many climbers."
 
 Now modify the following distraction sentence:
 
 Original Question: {original_question}
+Previous Distraction Sentence: {previous_modified_distraction}
 Distraction Sentence: {distraction_sentence}
 
 Modified Distraction:"""
@@ -386,19 +392,13 @@ Modified Distraction:"""
 
         # Validate that distraction cannot answer the original question
         can_answer = self.answerability_checker.check(distraction, question)
+        previous_distraction = distraction
 
         while can_answer:
-            # Log warning that distraction can answer original question
-            logger.warning(
-                f"Generated distraction can answer original question. "
-                f"Question: '{question}', Distraction: '{distraction}'. "
-                f"Attempting to modify the distraction sentence."
-            )
-
             # Step 4: Modify distraction sentence to not answer the original question
             logger.debug("Step 4: Modifying distraction sentence")
             modify_prompt = self._generate_modify_distraction_prompt(
-                question, distraction
+                question, previous_distraction, distraction
             )
             modified_distraction = self._call_gpt(modify_prompt)
 
@@ -423,6 +423,7 @@ Modified Distraction:"""
                 log_error_red(logger, error_msg)
 
             # Use the modified distraction
+            previous_distraction = distraction
             distraction = modified_distraction
 
         return distraction
@@ -455,8 +456,6 @@ Modified Distraction:"""
         results = []
 
         for i in range(self.num_transformations):
-            logger.info(f"Starting transformation {i + 1}/{self.num_transformations}")
-
             # Generate distraction using 3-step process
             distraction = self._generate_distraction(context, question, answer)
 
@@ -470,11 +469,6 @@ Modified Distraction:"""
             # Insert distraction into context
             transformed_context = self._insert_distraction(context, distraction)
             results.append(transformed_context)
-
-            logger.info(
-                f"Successfully generated transformation {i + 1}/"
-                f"{self.num_transformations}"
-            )
 
         # Return single string if num_transformations=1, otherwise return list
         if self.num_transformations == 1:

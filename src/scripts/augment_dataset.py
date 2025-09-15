@@ -36,6 +36,7 @@ from src.utils.colored_logging import (
 logging.basicConfig(
     level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s"
 )
+logging.getLogger("httpx").setLevel(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 

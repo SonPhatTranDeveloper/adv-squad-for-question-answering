@@ -64,8 +64,6 @@ class AnswerabilityChecker:
 
         result = response.choices[0].message.content.strip().lower()
 
-        print(f"Result: {result}")
-
         # Parse the response - expect "yes" or "no"
         if result.startswith("yes"):
             return True
