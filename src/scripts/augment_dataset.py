@@ -25,9 +25,16 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 from tqdm import tqdm
 
+from src.utils.colored_logging import (
+    log_error_red,
+    log_info_blue,
+    log_success_green,
+    log_warning_yellow,
+)
+
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -38,7 +45,7 @@ def process_single_row(
     context_col: str,
     question_col: str,
     answer_col: str,
-) -> tuple[int, list[pd.Series], int]:
+) -> tuple[int, list[pd.Series], int, bool]:
     """
     Process a single row for transformation.
 
@@ -49,7 +56,7 @@ def process_single_row(
         question_col: Name of the question column to transform
         answer_col: Name of the answer column to transform
     Returns:
-        Tuple of (original_index, list_of_augmented_rows, transformation_count)
+        Tuple of (original_index, list_of_augmented_rows, transformation_count, was_skipped)
     """
     idx, row = row_data
     context = row[context_col]
@@ -59,11 +66,9 @@ def process_single_row(
     transformation_count = 0
 
     if pd.isna(context):
-        logger.warning(f"Skipping NaN context at row {idx}")
-        # Keep original row for NaN contexts
-        new_row = row.copy()
-        augmented_rows.append(new_row)
-        return idx, augmented_rows, transformation_count
+        log_warning_yellow(logger, f"Skipping row {idx} due to NaN context")
+        # Skip row entirely for NaN contexts
+        return idx, augmented_rows, transformation_count, True
 
     try:
         transformed = transformer.transform(context, question, answer)
@@ -85,21 +90,22 @@ def process_single_row(
             transformation_count += 1
 
         else:
-            # Empty result or unexpected type, keep original
-            logger.warning(
-                f"Unexpected transformation result type at row {idx}: "
-                f"{type(transformed)}"
+            # Empty result or unexpected type, skip row
+            log_warning_yellow(
+                logger,
+                f"Skipping row {idx} due to unexpected transformation result type: "
+                f"{type(transformed)}",
             )
-            new_row = row.copy()
-            augmented_rows.append(new_row)
+            return idx, augmented_rows, transformation_count, True
 
     except Exception as e:
-        logger.warning(f"Failed to transform context at row {idx}: {e}")
-        # Keep original row on failure
-        new_row = row.copy()
-        augmented_rows.append(new_row)
+        log_warning_yellow(
+            logger, f"Skipping row {idx} due to transformation error: {e}"
+        )
+        # Skip row entirely on failure
+        return idx, augmented_rows, transformation_count, True
 
-    return idx, augmented_rows, transformation_count
+    return idx, augmented_rows, transformation_count, False
 
 
 def transform_context_column(
@@ -146,6 +152,7 @@ def transform_context_column(
     # Store all augmented rows with their original indices to maintain order
     results_dict = {}
     total_transformations = 0
+    skipped_rows = 0
     progress_lock = Lock()
 
     # Create progress bar for transformation process
@@ -170,22 +177,38 @@ def transform_context_column(
         for future in as_completed(future_to_row):
             original_idx = future_to_row[future]
             try:
-                idx, augmented_rows, transformation_count = future.result()
-                results_dict[idx] = augmented_rows
+                idx, augmented_rows, transformation_count, was_skipped = future.result()
+
+                # Only add to results if row was not skipped
+                if not was_skipped and augmented_rows:
+                    results_dict[idx] = augmented_rows
 
                 # Thread-safe progress update
                 with progress_lock:
                     total_transformations += transformation_count
-                    pbar.set_postfix({"transformations": total_transformations})
+                    if was_skipped:
+                        skipped_rows += 1
+                    pbar.set_postfix(
+                        {
+                            "transformations": total_transformations,
+                            "skipped": skipped_rows,
+                        }
+                    )
                     pbar.update(1)
 
             except Exception as e:
-                logger.error(f"Unexpected error processing row {original_idx}: {e}")
-                # Create a fallback row in case of unexpected errors
-                original_row = df.loc[original_idx].copy()
-                results_dict[original_idx] = [original_row]
-
+                log_error_red(
+                    logger, f"Unexpected error processing row {original_idx}: {e}"
+                )
+                # Skip row entirely on unexpected errors
                 with progress_lock:
+                    skipped_rows += 1
+                    pbar.set_postfix(
+                        {
+                            "transformations": total_transformations,
+                            "skipped": skipped_rows,
+                        }
+                    )
                     pbar.update(1)
 
     # Reconstruct augmented rows in original order
@@ -196,14 +219,15 @@ def transform_context_column(
     # Create DataFrame from all augmented rows
     augmented_df = pd.DataFrame(all_augmented_rows)
 
-    # Reset index and create new sequential ID column if original dataset had one
+    # Reset index but retain original IDs
     augmented_df.reset_index(drop=True, inplace=True)
-    if "id" in df.columns:
-        augmented_df["id"] = range(1, len(augmented_df) + 1)
 
-    logger.info(
-        f"Successfully transformed {len(df)} original contexts into "
-        f"{len(augmented_df)} total rows ({total_transformations} transformations)"
+    log_success_green(
+        logger,
+        f"Processed {len(df)} original rows: "
+        f"{len(augmented_df)} rows written, "
+        f"{skipped_rows} rows skipped, "
+        f"{total_transformations} transformations applied",
     )
     return augmented_df
 
@@ -238,34 +262,38 @@ def main(config: DictConfig) -> None:
         # Create output filename with transform name
         output_suffix = base_output_file.suffix
         output_file = base_output_file.parent / f"{transform_name}{output_suffix}"
-        logger.info(f"Using transform name '{transform_name}' for output filename")
+        log_info_blue(
+            logger, f"Using transform name '{transform_name}' for output filename"
+        )
     else:
         output_file = base_output_file
-        logger.info("No transform name found, using default output filename")
+        log_info_blue(logger, "No transform name found, using default output filename")
 
-    logger.info(f"Loading dataset from {input_file}")
-    logger.info(f"Output will be saved to: {output_file}")
+    log_info_blue(logger, f"Loading dataset from {input_file}")
+    log_info_blue(logger, f"Output will be saved to: {output_file}")
 
     # Validate input file exists
     if not input_file.exists():
-        logger.error(f"Input file does not exist: {input_file}")
+        log_error_red(logger, f"Input file does not exist: {input_file}")
         return
 
     # Check if output file already exists and warn user
     if output_file.exists():
-        logger.warning(
-            f"Output file already exists and will be overwritten: {output_file}"
+        log_warning_yellow(
+            logger, f"Output file already exists and will be overwritten: {output_file}"
         )
 
     # Load the dataset
     df = pd.read_csv(input_file)
-    logger.info(f"Loaded dataset with {len(df)} rows and {len(df.columns)} columns")
-    logger.info(f"Columns: {list(df.columns)}")
+    log_success_green(
+        logger, f"Loaded dataset with {len(df)} rows and {len(df.columns)} columns"
+    )
+    log_info_blue(logger, f"Columns: {list(df.columns)}")
 
     # Instantiate the transformer from config
-    logger.info("Instantiating transformer from configuration")
+    log_info_blue(logger, "Instantiating transformer from configuration")
     transformer = instantiate(config.transform.transform)
-    logger.info(f"Created transformer: {type(transformer).__name__}")
+    log_success_green(logger, f"Created transformer: {type(transformer).__name__}")
 
     # Transform the dataset
     augmented_df = transform_context_column(
@@ -277,11 +305,12 @@ def main(config: DictConfig) -> None:
 
     # Save augmented dataset
     augmented_df.to_csv(output_file, index=False)
-    logger.info(
-        f"Saved augmented dataset with {len(augmented_df)} rows to {output_file}"
+    log_success_green(
+        logger,
+        f"Saved augmented dataset with {len(augmented_df)} rows to {output_file}",
     )
 
-    logger.info("Dataset augmentation completed successfully")
+    log_success_green(logger, "Dataset augmentation completed successfully")
 
 
 if __name__ == "__main__":
