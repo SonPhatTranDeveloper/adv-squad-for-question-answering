@@ -6,7 +6,7 @@ import openai
 
 from src.transformation.base import TransformationBase
 from src.utils.caching import persistent_cache
-from src.utils.colored_logging import log_error_red
+from src.utils.colored_logging import log_error_red, log_warning_yellow
 from src.utils.contradiction import AnswerabilityChecker
 
 logger = logging.getLogger(__name__)
@@ -216,6 +216,56 @@ Distraction Sentence:"""
 
         return prompt
 
+    def _generate_modify_distraction_prompt(
+        self, original_question: str, distraction_sentence: str
+    ) -> str:
+        """
+        Create a prompt for GPT to modify a distraction sentence that can answer the original question.
+
+        Args:
+            original_question: The original question that the distraction can answer
+            distraction_sentence: The distraction sentence that needs to be modified
+
+        Returns:
+            Formatted prompt for GPT to modify the distraction sentence
+        """
+        prompt = f"""You are an expert adversarial example generator for QA datasets. Your task is to modify a distraction sentence so that it CANNOT be used to answer the original question, while keeping the sentence factually plausible and grammatically correct.
+
+Instructions:
+- Modify the distraction sentence so it NO LONGER contains information that can answer the original question
+- Remove or change key information that could be used to answer the question
+- Keep the sentence factually plausible and grammatically correct
+- Maintain the general topic and context of the sentence
+- The modified sentence should still be relevant to the overall context but not answer the specific question
+- Return ONLY the modified distraction sentence (no explanations)
+
+Examples:
+
+Original Question: "What is the capital of France?"
+Distraction Sentence: "Paris is the capital of France and a major cultural center."
+Modified Distraction: "France is known for its rich cultural heritage and major cities."
+
+Original Question: "Who invented the telephone?"
+Distraction Sentence: "Alexander Graham Bell invented the telephone in 1876."
+Modified Distraction: "The telephone was invented in 1876 and revolutionized communication."
+
+Original Question: "When was the Great Wall of China built?"
+Distraction Sentence: "The Great Wall of China was built during the Ming Dynasty from 1368 to 1644."
+Modified Distraction: "The Great Wall of China was constructed to protect against invasions from the north."
+
+Original Question: "How tall is Mount Everest?"
+Distraction Sentence: "Mount Everest is 8,848 meters tall and located in the Himalayas."
+Modified Distraction: "Mount Everest is located in the Himalayas and attracts many climbers."
+
+Now modify the following distraction sentence:
+
+Original Question: {original_question}
+Distraction Sentence: {distraction_sentence}
+
+Modified Distraction:"""
+
+        return prompt
+
     def _call_gpt(self, prompt: str) -> str:
         """
         Call GPT API to generate response based on the provided prompt.
@@ -285,7 +335,9 @@ Distraction Sentence:"""
 
     def _generate_distraction(self, context: str, question: str, answer: str) -> str:
         """
-        Generate a distraction sentence using the 3-step process.
+        Generate a distraction sentence using a multi-step process.
+        Steps: 1) Perturb question, 2) Generate fake answer, 3) Create distraction sentence,
+        4) If distraction can answer original question, modify it so it cannot.
 
         Args:
             context: The original context
@@ -334,17 +386,44 @@ Distraction Sentence:"""
 
         # Validate that distraction cannot answer the original question
         can_answer = self.answerability_checker.check(distraction, question)
-        if can_answer:
-            # Log error in red using utility function
-            error_msg = (
+
+        while can_answer:
+            # Log warning that distraction can answer original question
+            logger.warning(
                 f"Generated distraction can answer original question. "
-                f"Question: '{question}', Distraction: '{distraction}'"
+                f"Question: '{question}', Distraction: '{distraction}'. "
+                f"Attempting to modify the distraction sentence."
             )
-            log_error_red(logger, error_msg)
-            raise ValueError(
-                f"Invalid distraction: sentence can be used to answer the original question. "
-                f"Question: '{question}', Distraction: '{distraction}'"
+
+            # Step 4: Modify distraction sentence to not answer the original question
+            logger.debug("Step 4: Modifying distraction sentence")
+            modify_prompt = self._generate_modify_distraction_prompt(
+                question, distraction
             )
+            modified_distraction = self._call_gpt(modify_prompt)
+
+            # Log modified distraction
+            msg = f"""
+                Question: {question}
+                Distraction: {distraction}
+                Modified distraction: {modified_distraction}
+            """
+            log_warning_yellow(logger, msg)
+
+            # Validate the modified distraction
+            can_answer = self.answerability_checker.check(
+                modified_distraction, question
+            )
+            if can_answer:
+                # If still answerable after modification, log error and return empty
+                error_msg = (
+                    f"Modified distraction still can answer original question. "
+                    f"Question: '{question}', Modified Distraction: '{modified_distraction}'"
+                )
+                log_error_red(logger, error_msg)
+
+            # Use the modified distraction
+            distraction = modified_distraction
 
         return distraction
 
@@ -352,10 +431,11 @@ Distraction Sentence:"""
     def transform(self, context: str, question: str, answer: str) -> str | list[str]:
         """
         Transform the context by adding adversarial distraction sentences.
-        Uses a 3-step process with separate OpenAI calls for better accuracy:
+        Uses a multi-step process with separate OpenAI calls for better accuracy:
         1. Perturb the original question
         2. Generate a fake answer for the perturbed question
         3. Combine into a fluent distraction sentence
+        4. If the distraction can answer the original question, modify it so it cannot
 
         Args:
             context: The input context to transform
