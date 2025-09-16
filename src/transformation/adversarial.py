@@ -27,6 +27,7 @@ class AdversarialTransformation(TransformationBase):
         temperature: float = 0.7,
         insertion_position: str = "random",  # "start", "end", "random"
         answerability_checker: AnswerabilityChecker = None,
+        max_retries: int = 3,
     ):
         """
         Initialize the adversarial transformation.
@@ -39,6 +40,7 @@ class AdversarialTransformation(TransformationBase):
             temperature: Temperature for GPT generation (0.0-1.0)
             insertion_position: Where to insert distraction ("start", "end", "random")
             answerability_checker: AnswerabilityChecker to validate distractions
+            max_retries: Maximum number of retries for modifying distraction sentences
         """
         super().__init__(num_transformations)
 
@@ -55,11 +57,14 @@ class AdversarialTransformation(TransformationBase):
         self.max_tokens = max_tokens
         self.temperature = temperature
         self.insertion_position = insertion_position
+        self.max_retries = max_retries
 
         # Initialize answerability checker to validate distractions
         self.answerability_checker = answerability_checker
 
-        logger.info(f"Initialized AdversarialTransformation with model: {model}")
+        logger.info(
+            f"Initialized AdversarialTransformation with model: {model}, max_retries: {max_retries}"
+        )
 
     def _generate_perturbed_question_prompt(self, question: str) -> str:
         """
@@ -217,7 +222,10 @@ Distraction Sentence:"""
         return prompt
 
     def _generate_modify_distraction_prompt(
-        self, original_question: str, previous_modified_distraction: str, distraction_sentence: str
+        self,
+        original_question: str,
+        previous_modified_distraction: str,
+        distraction_sentence: str,
     ) -> str:
         """
         Create a prompt for GPT to modify a distraction sentence that can answer the original question.
@@ -312,8 +320,9 @@ Modified Distraction:"""
             Modified context with distraction inserted
         """
         if not distraction.strip():
-            logger.warning("Empty distraction sentence, returning original context")
-            return context
+            message = "Empty distraction sentence, returning original context"
+            log_error_red(logger, message)
+            raise ValueError(message)
 
         sentences = context.split(". ")
 
@@ -339,6 +348,7 @@ Modified Distraction:"""
 
         return modified_context
 
+    @persistent_cache(cache_dir="cache")
     def _generate_distraction(self, context: str, question: str, answer: str) -> str:
         """
         Generate a distraction sentence using a multi-step process.
@@ -385,25 +395,39 @@ Modified Distraction:"""
         distraction = self._call_gpt(distraction_prompt)
 
         if not distraction.strip():
-            logger.warning("Failed to generate distraction sentence")
-            return ""
+            message = "Failed to generate distraction sentence"
+            log_error_red(logger, message)
+            raise ValueError(message)
 
         logger.debug(f"Generated distraction: {distraction}")
 
         # Validate that distraction cannot answer the original question
         can_answer = self.answerability_checker.check(distraction, question)
         previous_distraction = distraction
+        retry_count = 0
 
-        while can_answer:
+        while can_answer and retry_count < self.max_retries:
+            retry_count += 1
+            logger.debug(
+                f"Step 4: Modifying distraction sentence (attempt {retry_count}/{self.max_retries})"
+            )
+
             # Step 4: Modify distraction sentence to not answer the original question
-            logger.debug("Step 4: Modifying distraction sentence")
             modify_prompt = self._generate_modify_distraction_prompt(
                 question, previous_distraction, distraction
             )
             modified_distraction = self._call_gpt(modify_prompt)
 
+            if not modified_distraction.strip():
+                message = (
+                    f"Failed to generate modified distraction on attempt {retry_count}"
+                )
+                log_error_red(logger, message)
+                raise ValueError(message)
+
             # Log modified distraction
             msg = f"""
+                Attempt {retry_count}/{self.max_retries}:
                 Question: {question}
                 Distraction: {distraction}
                 Modified distraction: {modified_distraction}
@@ -414,21 +438,22 @@ Modified Distraction:"""
             can_answer = self.answerability_checker.check(
                 modified_distraction, question
             )
-            if can_answer:
-                # If still answerable after modification, log error and return empty
-                error_msg = (
-                    f"Modified distraction still can answer original question. "
-                    f"Question: '{question}', Modified Distraction: '{modified_distraction}'"
-                )
-                log_error_red(logger, error_msg)
 
             # Use the modified distraction
             previous_distraction = distraction
             distraction = modified_distraction
 
+        # If we exhausted all retries and distraction still answers the question, log error
+        if can_answer and retry_count >= self.max_retries:
+            error_msg = (
+                f"Exhausted max retries ({self.max_retries}) but distraction still can answer original question. "
+                f"Question: '{question}', Final Distraction: '{distraction}'"
+            )
+            log_error_red(logger, error_msg)
+            raise ValueError(error_msg)
+
         return distraction
 
-    @persistent_cache(cache_dir="cache")
     def transform(self, context: str, question: str, answer: str) -> str | list[str]:
         """
         Transform the context by adding adversarial distraction sentences.
@@ -460,9 +485,9 @@ Modified Distraction:"""
             distraction = self._generate_distraction(context, question, answer)
 
             if not distraction.strip():
-                logger.warning("Failed to generate distraction, using original context")
-                results.append(context)
-                continue
+                message = f"Failed to generate distraction on attempt {i + 1}/{self.num_transformations}"
+                log_error_red(logger, message)
+                raise ValueError(message)
 
             logger.debug(f"Final distraction sentence: {distraction}")
 
