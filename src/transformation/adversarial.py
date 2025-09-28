@@ -6,7 +6,7 @@ import openai
 
 from src.transformation.base import TransformationBase
 from src.utils.caching import persistent_cache
-from src.utils.colored_logging import log_error_red, log_warning_yellow
+from src.utils.colored_logging import log_error_red
 from src.utils.contradiction import AnswerabilityChecker
 
 logger = logging.getLogger(__name__)
@@ -403,51 +403,12 @@ Modified Distraction:"""
 
         # Validate that distraction cannot answer the original question
         can_answer = self.answerability_checker.check(distraction, question)
-        previous_distraction = distraction
-        retry_count = 0
-
-        while can_answer and retry_count < self.max_retries:
-            retry_count += 1
-            logger.debug(
-                f"Step 4: Modifying distraction sentence (attempt {retry_count}/{self.max_retries})"
-            )
-
-            # Step 4: Modify distraction sentence to not answer the original question
-            modify_prompt = self._generate_modify_distraction_prompt(
-                question, previous_distraction, distraction
-            )
-            modified_distraction = self._call_gpt(modify_prompt)
-
-            if not modified_distraction.strip():
-                message = (
-                    f"Failed to generate modified distraction on attempt {retry_count}"
-                )
-                log_error_red(logger, message)
-                raise ValueError(message)
-
-            # Log modified distraction
-            msg = f"""
-                Attempt {retry_count}/{self.max_retries}:
-                Question: {question}
-                Distraction: {distraction}
-                Modified distraction: {modified_distraction}
-            """
-            log_warning_yellow(logger, msg)
-
-            # Validate the modified distraction
-            can_answer = self.answerability_checker.check(
-                modified_distraction, question
-            )
-
-            # Use the modified distraction
-            previous_distraction = distraction
-            distraction = modified_distraction
 
         # If we exhausted all retries and distraction still answers the question, log error
-        if can_answer and retry_count >= self.max_retries:
+        if can_answer:
             error_msg = (
-                f"Exhausted max retries ({self.max_retries}) but distraction still can answer original question. "
-                f"Question: '{question}', Final Distraction: '{distraction}'"
+                f"Distraction still can answer original question. "
+                f"Skipping this distraction. Question: '{question}', Distraction: '{distraction}'"
             )
             log_error_red(logger, error_msg)
             raise ValueError(error_msg)
